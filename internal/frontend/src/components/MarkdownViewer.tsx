@@ -76,7 +76,7 @@ async function renderMermaid(code: string): Promise<string> {
   return result;
 }
 
-function MermaidBlock({ code }: { code: string }) {
+export function MermaidBlock({ code }: { code: string }) {
   const [svg, setSvg] = useState("");
 
   useEffect(() => {
@@ -114,12 +114,20 @@ function MermaidBlock({ code }: { code: string }) {
   }, [code]);
 
   if (svg) {
-    return <div dangerouslySetInnerHTML={{ __html: svg }} />;
+    return (
+      <div className="relative group">
+        <div dangerouslySetInnerHTML={{ __html: svg }} />
+        <CodeBlockCopyButton code={code} />
+      </div>
+    );
   }
   return (
-    <pre>
-      <code>{code}</code>
-    </pre>
+    <div className="relative group">
+      <pre>
+        <code>{code}</code>
+      </pre>
+      <CodeBlockCopyButton code={code} />
+    </div>
   );
 }
 
