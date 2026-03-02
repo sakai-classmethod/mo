@@ -30,6 +30,7 @@ var (
 	noOpen      bool
 	restore     string
 	shutdownServer bool
+	foreground     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -37,7 +38,7 @@ var rootCmd = &cobra.Command{
 	Short: "mo is a Markdown viewer that opens .md files in a browser.",
 	Long: `mo is a Markdown viewer that opens .md files in a browser with live-reload.
 
-It starts an HTTP server, renders Markdown files using a built-in React SPA,
+It runs in the background, serving Markdown files using a built-in React SPA,
 and automatically refreshes the browser when files are saved.
 
 Examples:
@@ -51,7 +52,7 @@ Single Server, Multiple Files:
   If a server is already running on the same port, subsequent mo invocations
   add files to the existing session instead of starting a new one.
 
-  $ mo README.md          # Starts a server and opens the browser
+  $ mo README.md          # Starts mo in the background and opens the browser
   $ mo CHANGELOG.md       # Adds the file to the running server
 
   To run a completely separate session, use a different port:
@@ -68,6 +69,15 @@ Groups:
   $ mo notes.md --target notes      # Opens at /notes
 
   If no --target is specified, files are added to the "default" group.
+
+Starting and Stopping:
+  The server runs in the background by default. The command returns
+  immediately, leaving the shell free for other work.
+
+  $ mo README.md            # Starts a background server
+  $ mo --shutdown           # Shuts it down
+
+  Use --foreground to keep the server in the foreground.
 
 Live-Reload:
   mo watches all opened files for changes using filesystem notifications.
@@ -98,14 +108,17 @@ func init() {
 	rootCmd.Flags().BoolVar(&shutdownServer, "shutdown", false, "Shut down the running mo server on the specified port")
 	rootCmd.Flags().StringVar(&restore, "restore", "", "Restore state from file (internal use)")
 	rootCmd.Flags().MarkHidden("restore") //nolint:errcheck
+	rootCmd.Flags().BoolVar(&foreground, "foreground", false, "Run server in foreground (do not background)")
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	logCleanup, err := logfile.Setup(port)
-	if err != nil {
-		slog.Warn("failed to setup log file, using stderr", "error", err)
-	} else {
-		defer logCleanup()
+	if !foreground || restore != "" {
+		logCleanup, err := logfile.Setup(port)
+		if err != nil {
+			slog.Warn("failed to setup log file, using stderr", "error", err)
+		} else {
+			defer logCleanup()
+		}
 	}
 
 	addr := fmt.Sprintf("localhost:%d", port)
@@ -132,7 +145,10 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	filesByGroup := map[string][]string{target: files}
-	return startServer(cmd.Context(), addr, filesByGroup)
+	if foreground {
+		return startServer(cmd.Context(), addr, filesByGroup)
+	}
+	return startBackground(addr, filesByGroup)
 }
 
 func loadRestoreData(path string) (map[string][]string, error) {
@@ -213,6 +229,7 @@ func tryAddToExisting(addr string, files []string) bool {
 	}
 
 	slog.Info("added files to existing server", "count", len(files), "addr", addr)
+	fmt.Fprintf(os.Stderr, "mo: added %d file(s) to http://%s\n", len(files), addr)
 
 	if !noOpen && (isNewGroup || open) {
 		url := fmt.Sprintf("http://%s/%s", addr, target)
@@ -250,6 +267,7 @@ func doShutdown(addr string) error {
 	}
 
 	slog.Info("shutdown request sent", "addr", addr)
+	fmt.Fprintf(os.Stderr, "mo: shutdown request sent to %s\n", addr)
 	return nil
 }
 
@@ -308,15 +326,7 @@ func startServer(ctx context.Context, addr string, filesByGroup map[string][]str
 		}
 	}()
 
-	if !noOpen {
-		url := fmt.Sprintf("http://%s", addr)
-		if target != "default" {
-			url = fmt.Sprintf("%s/%s", url, target)
-		}
-		if err := browser.OpenURL(url); err != nil {
-			slog.Warn("could not open browser", "error", err)
-		}
-	}
+	openBrowser(addr)
 
 	select {
 	case <-ctx.Done():
@@ -326,7 +336,8 @@ func startServer(ctx context.Context, addr string, filesByGroup map[string][]str
 		// Cleanup releases the port (CloseAllSubscribers + srv.Shutdown)
 		// before we spawn the new process.
 		cleanup()
-		return spawnNewProcess(addr, restoreFile)
+		_, err := spawnNewProcess(addr, restoreFile)
+		return err
 	case <-state.ShutdownCh():
 		slog.Info("shutting down (requested via API)")
 	}
@@ -334,24 +345,82 @@ func startServer(ctx context.Context, addr string, filesByGroup map[string][]str
 	return nil
 }
 
-func spawnNewProcess(addr string, restoreFile string) error {
-	binPath, err := exec.LookPath(os.Args[0])
+func spawnNewProcess(addr string, restoreFile string) (*os.Process, error) {
+	binPath, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("cannot find binary: %w", err)
+		return nil, fmt.Errorf("cannot find binary: %w", err)
 	}
 
 	_, p, err := net.SplitHostPort(addr)
 	if err != nil {
-		return fmt.Errorf("cannot parse addr: %w", err)
+		return nil, fmt.Errorf("cannot parse addr: %w", err)
 	}
 
-	cmd := exec.Command(binPath, "--port", p, "--no-open", "--restore", restoreFile) //nolint:gosec
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := exec.Command(binPath, "--port", p, "--no-open", "--foreground", "--restore", restoreFile) //nolint:gosec
+	setSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start new process: %w", err)
+		return nil, fmt.Errorf("failed to start new process: %w", err)
 	}
 
 	slog.Info("new process started", "pid", cmd.Process.Pid) //nolint:gosec // PID is from our own child process
+	return cmd.Process, nil
+}
+
+func startBackground(addr string, filesByGroup map[string][]string) error {
+	restoreFile, err := server.WriteRestoreFile(server.RestoreData{Groups: filesByGroup})
+	if err != nil {
+		return err
+	}
+
+	proc, err := spawnNewProcess(addr, restoreFile)
+	if err != nil {
+		os.Remove(restoreFile)
+		return err
+	}
+	pid := proc.Pid
+	// Detach so the child survives parent exit.
+	if err := proc.Release(); err != nil {
+		slog.Warn("failed to release process", "error", err)
+	}
+
+	if err := waitForReady(addr, 10*time.Second); err != nil {
+		return fmt.Errorf("%w (pid %d)", err, pid)
+	}
+
+	fmt.Fprintf(os.Stderr, "mo: serving at http://%s (pid %d)\n", addr, pid)
+
+	openBrowser(addr)
+
 	return nil
+}
+
+func openBrowser(addr string) {
+	if noOpen {
+		return
+	}
+	url := fmt.Sprintf("http://%s", addr)
+	if target != "default" {
+		url = fmt.Sprintf("%s/%s", url, target)
+	}
+	if err := browser.OpenURL(url); err != nil {
+		slog.Warn("could not open browser", "error", err)
+	}
+}
+
+func waitForReady(addr string, timeout time.Duration) error {
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(fmt.Sprintf("http://%s/_/api/groups", addr))
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return fmt.Errorf("server did not become ready within %s (check log file for details)", timeout)
 }

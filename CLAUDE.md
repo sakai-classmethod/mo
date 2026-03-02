@@ -45,6 +45,7 @@ make ci
 - `--target` / `-t` — Tab group name (default: `"default"`)
 - `--open` — Always open browser
 - `--no-open` — Never open browser
+- `--foreground` — Run server in foreground (do not background)
 
 ## Architecture
 

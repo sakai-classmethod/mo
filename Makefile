@@ -18,7 +18,7 @@ build: generate
 	go build -ldflags=$(BUILD_LDFLAGS) -trimpath -o mo .
 
 dev: build
-	./mo -p 16275 $(ARGS)
+	./mo -p 16275 --foreground $(ARGS)
 
 screenshot: build
 	cd internal/frontend && pnpm run screenshots
