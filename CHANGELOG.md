@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.9.0](https://github.com/k1LoW/mo/compare/v0.8.0...v0.9.0) - 2026-03-02
+### New Features 🎉
+- feat: add file remove feature by @k1LoW in https://github.com/k1LoW/mo/pull/36
+- feat: add Open in new tab to sidebar kebab menu by @k1LoW in https://github.com/k1LoW/mo/pull/38
+- feat: add restart server from Web UI by @k1LoW in https://github.com/k1LoW/mo/pull/39
+
 ## [v0.8.0](https://github.com/k1LoW/mo/compare/v0.7.0...v0.8.0) - 2026-03-01
 ### New Features 🎉
 - feat: add copy buttons to Mermaid blocks by @k1LoW in https://github.com/k1LoW/mo/pull/34
