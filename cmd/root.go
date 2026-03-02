@@ -245,6 +245,10 @@ func doClose(addr string) error {
 	}
 	resp.Body.Close()
 
+	if resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("unexpected response from server: %s", resp.Status)
+	}
+
 	slog.Info("shutdown request sent", "addr", addr)
 	return nil
 }
