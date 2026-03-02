@@ -10,6 +10,17 @@
 
 `mo` is a **M**arkdown viewer that **o**pens `.md` files in a browser.
 
+## Features
+
+- Live-reload on save
+- GitHub-flavored Markdown (tables, task lists, footnotes, etc.)
+- Syntax highlighting ([Shiki](https://shiki.style/))
+- [Mermaid](https://mermaid.js.org/) diagram rendering
+- Dark / light theme
+- Flat / tree sidebar view with drag-and-drop reorder
+- Table of contents panel
+- File grouping
+
 ## Install
 
 **homebrew tap:**
@@ -61,12 +72,22 @@ $ mo notes.md --target notes      # Opens at http://localhost:6275/notes
 
 ![Group view](images/groups.png)
 
+### Sidebar view modes
+
+The sidebar supports flat and tree view modes. Flat view shows file names only, while tree view displays the directory hierarchy.
+
+| Flat | Tree |
+|------|------|
+| ![Flat view](images/sidebar-flat.png) | ![Tree view](images/sidebar-tree.png) |
+
 ### Flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--target` | `-t` | `default` | Group name |
 | `--port` | `-p` | `6275` | Server port |
+| `--open` | | | Always open browser |
+| `--no-open` | | | Never open browser |
 
 ## Build
 

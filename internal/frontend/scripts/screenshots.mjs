@@ -127,6 +127,54 @@ async function main() {
       });
       console.log("Saved groups.png");
       await page2.close();
+
+      // === Screenshot 3: sidebar-flat.png & sidebar-tree.png ===
+      console.log("Taking sidebar flat/tree screenshots...");
+
+      // Add project files to "project" group
+      const projectFiles = [
+        "README.md",
+        "docs/getting-started.md",
+        "docs/configuration.md",
+        "src/components/App.md",
+        "src/components/Sidebar.md",
+        "src/hooks/useApi.md",
+      ];
+      for (const f of projectFiles) {
+        await addFile(resolve(TESTDATA, "project", f), "project");
+      }
+
+      const page3 = await context.newPage();
+      await page3.addInitScript(() => {
+        localStorage.setItem("mo-theme", "dark");
+      });
+      await page3.goto(`${BASE}/project`);
+      await page3.waitForLoadState("load");
+      await page3.waitForTimeout(500);
+
+      // Flat mode (default) — capture top half of sidebar + peek into content
+      const flatBox = await page3.locator("aside").boundingBox();
+      const peekWidth = Math.round(flatBox.width / 3);
+      await page3.screenshot({
+        path: resolve(IMAGES_DIR, "sidebar-flat.png"),
+        clip: { x: flatBox.x, y: flatBox.y, width: flatBox.width + peekWidth, height: flatBox.height / 2 },
+      });
+      console.log("Saved sidebar-flat.png");
+
+      // Switch to tree view
+      await page3
+        .locator('button[title="Switch to tree view"]')
+        .click();
+      await page3.waitForTimeout(500);
+
+      // Tree mode — capture top half of sidebar + peek into content
+      const treeBox = await page3.locator("aside").boundingBox();
+      await page3.screenshot({
+        path: resolve(IMAGES_DIR, "sidebar-tree.png"),
+        clip: { x: treeBox.x, y: treeBox.y, width: treeBox.width + peekWidth, height: treeBox.height / 2 },
+      });
+      console.log("Saved sidebar-tree.png");
+      await page3.close();
     } finally {
       await browser.close();
     }
