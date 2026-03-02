@@ -341,6 +341,22 @@ type RestoreData struct {
 	Groups map[string][]string `json:"groups"`
 }
 
+// WriteRestoreFile writes RestoreData to a temporary file and returns the path.
+func WriteRestoreFile(data RestoreData) (string, error) {
+	f, err := os.CreateTemp("", "mo-restore-*.json")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer f.Close()
+
+	if err := json.NewEncoder(f).Encode(data); err != nil {
+		os.Remove(f.Name()) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
+		return "", fmt.Errorf("failed to write restore data: %w", err)
+	}
+
+	return f.Name(), nil
+}
+
 // ExportState writes the current groups and file paths to a temporary file and returns the path.
 func (s *State) ExportState() (string, error) {
 	s.mu.RLock()
@@ -357,18 +373,7 @@ func (s *State) ExportState() (string, error) {
 		data.Groups[name] = paths
 	}
 
-	f, err := os.CreateTemp("", "mo-restore-*.json")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer f.Close()
-
-	if err := json.NewEncoder(f).Encode(data); err != nil {
-		os.Remove(f.Name()) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
-		return "", fmt.Errorf("failed to write restore data: %w", err)
-	}
-
-	return f.Name(), nil
+	return WriteRestoreFile(data)
 }
 
 func (s *State) watchLoop() {

@@ -324,15 +324,7 @@ func startServer(ctx context.Context, addr string, filesByGroup map[string][]str
 		}
 	}()
 
-	if !noOpen {
-		url := fmt.Sprintf("http://%s", addr)
-		if target != "default" {
-			url = fmt.Sprintf("%s/%s", url, target)
-		}
-		if err := browser.OpenURL(url); err != nil {
-			slog.Warn("could not open browser", "error", err)
-		}
-	}
+	openBrowser(addr)
 
 	select {
 	case <-ctx.Done():
@@ -373,7 +365,7 @@ func spawnNewProcess(addr string, restoreFile string) (*os.Process, error) {
 }
 
 func startBackground(addr string, filesByGroup map[string][]string) error {
-	restoreFile, err := writeRestoreData(filesByGroup)
+	restoreFile, err := server.WriteRestoreFile(server.RestoreData{Groups: filesByGroup})
 	if err != nil {
 		return err
 	}
@@ -383,47 +375,34 @@ func startBackground(addr string, filesByGroup map[string][]string) error {
 		os.Remove(restoreFile)
 		return err
 	}
+	pid := proc.Pid
 	// Detach so the child survives parent exit.
 	if err := proc.Release(); err != nil {
 		slog.Warn("failed to release process", "error", err)
 	}
 
 	if err := waitForReady(addr, 10*time.Second); err != nil {
-		return err
+		return fmt.Errorf("%w (pid %d)", err, pid)
 	}
 
-	fmt.Fprintf(os.Stderr, "mo: serving at http://%s (pid %d)\n", addr, proc.Pid)
+	fmt.Fprintf(os.Stderr, "mo: serving at http://%s (pid %d)\n", addr, pid)
 
-	if !noOpen {
-		url := fmt.Sprintf("http://%s", addr)
-		if target != "default" {
-			url = fmt.Sprintf("%s/%s", url, target)
-		}
-		if err := browser.OpenURL(url); err != nil {
-			slog.Warn("could not open browser", "error", err)
-		}
-	}
+	openBrowser(addr)
 
 	return nil
 }
 
-func writeRestoreData(filesByGroup map[string][]string) (string, error) {
-	data := server.RestoreData{
-		Groups: filesByGroup,
+func openBrowser(addr string) {
+	if noOpen {
+		return
 	}
-
-	f, err := os.CreateTemp("", "mo-restore-*.json")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
+	url := fmt.Sprintf("http://%s", addr)
+	if target != "default" {
+		url = fmt.Sprintf("%s/%s", url, target)
 	}
-	defer f.Close()
-
-	if err := json.NewEncoder(f).Encode(data); err != nil {
-		os.Remove(f.Name()) //nolint:gosec
-		return "", fmt.Errorf("failed to write restore data: %w", err)
+	if err := browser.OpenURL(url); err != nil {
+		slog.Warn("could not open browser", "error", err)
 	}
-
-	return f.Name(), nil
 }
 
 func waitForReady(addr string, timeout time.Duration) error {
