@@ -98,6 +98,8 @@ func (s *State) AddFile(absPath, groupName string) *FileEntry {
 		}
 	}
 
+	slog.Info("file added", "path", absPath, "group", groupName, "id", entry.ID)
+
 	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
 	return entry
 }
@@ -260,6 +262,8 @@ func (s *State) RemoveFile(id int) bool {
 		return false
 	}
 
+	slog.Info("file removed", "path", removedPath, "id", id)
+
 	// Remove watcher only if no other file references the same path
 	if s.watcher != nil && removedPath != "" {
 		stillReferenced := false
@@ -368,6 +372,7 @@ func (s *State) watchLoop() {
 				return
 			}
 			if event.Has(fsnotify.Write) {
+				slog.Info("file changed", "path", event.Name)
 				ids := s.findIDsByPath(event.Name)
 				for _, id := range ids {
 					s.sendEvent(sseEvent{
