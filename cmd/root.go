@@ -12,6 +12,9 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,6 +34,7 @@ var (
 	restore     string
 	shutdownServer bool
 	foreground     bool
+	statusServer   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -48,12 +52,12 @@ Examples:
   mo draft.md --port 6276               Use a different port
 
 Single Server, Multiple Files:
-  By default, mo runs a single server process on port 6275.
-  If a server is already running on the same port, subsequent mo invocations
-  add files to the existing session instead of starting a new one.
+  By default, mo runs a single mo server on port 6275.
+  If a mo server is already running on the same port, subsequent mo
+  invocations add files to the existing session instead of starting a new one.
 
-  $ mo README.md          # Starts mo in the background and opens the browser
-  $ mo CHANGELOG.md       # Adds the file to the running server
+  $ mo README.md          # Starts a mo server in the background
+  $ mo CHANGELOG.md       # Adds the file to the running mo server
 
   To run a completely separate session, use a different port:
 
@@ -71,13 +75,14 @@ Groups:
   If no --target is specified, files are added to the "default" group.
 
 Starting and Stopping:
-  The server runs in the background by default. The command returns
+  mo runs in the background by default. The command returns
   immediately, leaving the shell free for other work.
 
-  $ mo README.md            # Starts a background server
+  $ mo README.md            # Starts mo in the background
+  $ mo --status             # Shows all running mo servers
   $ mo --shutdown           # Shuts it down
 
-  Use --foreground to keep the server in the foreground.
+  Use --foreground to keep the mo server in the foreground.
 
 Live-Reload:
   mo watches all opened files for changes using filesystem notifications.
@@ -108,7 +113,8 @@ func init() {
 	rootCmd.Flags().BoolVar(&shutdownServer, "shutdown", false, "Shut down the running mo server on the specified port")
 	rootCmd.Flags().StringVar(&restore, "restore", "", "Restore state from file (internal use)")
 	rootCmd.Flags().MarkHidden("restore") //nolint:errcheck
-	rootCmd.Flags().BoolVar(&foreground, "foreground", false, "Run server in foreground (do not background)")
+	rootCmd.Flags().BoolVar(&foreground, "foreground", false, "Run mo server in foreground (do not background)")
+	rootCmd.Flags().BoolVar(&statusServer, "status", false, "Show status of all running mo servers")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -122,6 +128,10 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	addr := fmt.Sprintf("localhost:%d", port)
+
+	if statusServer {
+		return doStatus()
+	}
 
 	if shutdownServer {
 		return doShutdown(addr)
@@ -269,6 +279,99 @@ func doShutdown(addr string) error {
 	slog.Info("shutdown request sent", "addr", addr)
 	fmt.Fprintf(os.Stderr, "mo: shutdown request sent to %s\n", addr)
 	return nil
+}
+
+type statusResponse struct {
+	Version  string `json:"version"`
+	Revision string `json:"revision"`
+	PID      int    `json:"pid"`
+	Groups   []struct {
+		Name  string `json:"name"`
+		Files []struct {
+			Name string `json:"name"`
+			ID   int    `json:"id"`
+			Path string `json:"path"`
+		} `json:"files"`
+	} `json:"groups"`
+}
+
+func doStatus() error {
+	ports := discoverPorts()
+	if len(ports) == 0 {
+		fmt.Fprintln(os.Stderr, "mo: no mo server found")
+		return nil
+	}
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	found := false
+
+	for i, p := range ports {
+		addr := fmt.Sprintf("localhost:%d", p)
+		resp, err := client.Get(fmt.Sprintf("http://%s/_/api/status", addr))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "http://%s (stopped)\n", addr)
+			if i < len(ports)-1 {
+				fmt.Fprintln(os.Stderr)
+			}
+			found = true
+			continue
+		}
+
+		var status statusResponse
+		if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+			resp.Body.Close()
+			continue
+		}
+		resp.Body.Close()
+		found = true
+
+		ver := status.Version
+		if status.Revision != "" {
+			ver += " " + status.Revision
+		}
+		fmt.Fprintf(os.Stderr, "http://%s (pid %d, %s)\n", addr, status.PID, ver)
+		for _, g := range status.Groups {
+			fmt.Fprintf(os.Stderr, "  %s: %d file(s)\n", g.Name, len(g.Files))
+		}
+		if i < len(ports)-1 {
+			fmt.Fprintln(os.Stderr)
+		}
+	}
+
+	if !found {
+		fmt.Fprintln(os.Stderr, "mo: no mo server found")
+	}
+
+	return nil
+}
+
+func discoverPorts() []int {
+	dir, err := logfile.Dir()
+	if err != nil {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	var ports []int
+	for _, e := range entries {
+		name := e.Name()
+		// Match "mo-{port}.log"
+		if !strings.HasPrefix(name, "mo-") || !strings.HasSuffix(name, ".log") {
+			continue
+		}
+		// Exclude rotated backups like "mo-6275.log.1"
+		raw := strings.TrimSuffix(strings.TrimPrefix(name, "mo-"), ".log")
+		p, err := strconv.Atoi(raw)
+		if err != nil {
+			continue
+		}
+		ports = append(ports, p)
+	}
+	sort.Ints(ports)
+	return ports
 }
 
 func startServer(ctx context.Context, addr string, filesByGroup map[string][]string) error {

@@ -461,6 +461,7 @@ func NewHandler(state *State) http.Handler {
 	mux.HandleFunc("POST /_/api/files/open", handleOpenFile(state))
 	mux.HandleFunc("POST /_/api/restart", handleRestart(state))
 	mux.HandleFunc("POST /_/api/shutdown", handleShutdown(state))
+	mux.HandleFunc("GET /_/api/status", handleStatus(state))
 	mux.HandleFunc("GET /_/api/version", handleVersion())
 	mux.HandleFunc("GET /_/events", handleSSE(state))
 	mux.HandleFunc("GET /", handleSPA())
@@ -677,6 +678,26 @@ func handleShutdown(state *State) http.HandlerFunc {
 		select {
 		case state.shutdownCh <- struct{}{}:
 		default:
+		}
+	}
+}
+
+func handleStatus(state *State) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp := struct {
+			Version  string  `json:"version"`
+			Revision string  `json:"revision"`
+			PID      int     `json:"pid"`
+			Groups   []Group `json:"groups"`
+		}{
+			Version:  version.Version,
+			Revision: version.Revision,
+			PID:      os.Getpid(),
+			Groups:   state.Groups(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			slog.Error("failed to encode status response", "error", err)
 		}
 	}
 }

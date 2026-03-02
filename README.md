@@ -45,11 +45,11 @@ $ mo spec.md --target design            # Open in a named group
 
 ### Single server, multiple files
 
-By default, `mo` runs a single server process on port `6275`. If a server is already running on the same port, subsequent `mo` invocations add files to the existing session instead of starting a new one.
+By default, `mo` runs a single mo server on port `6275`. If a mo server is already running on the same port, subsequent `mo` invocations add files to the existing session instead of starting a new one.
 
 ``` console
-$ mo README.md          # Starts mo in the background and opens the browser
-$ mo CHANGELOG.md       # Adds the file to the running server
+$ mo README.md          # Starts a mo server in the background
+$ mo CHANGELOG.md       # Adds the file to the running mo server
 ```
 
 To run a completely separate session, use a different port:
@@ -90,14 +90,15 @@ mo: serving at http://localhost:6275 (pid 12345)
 $ # shell is available immediately
 ```
 
-Use the `--shutdown` flag to gracefully shut down a running server:
+Use `--status` to check all running mo servers, and `--shutdown` to stop one:
 
 ``` console
-$ mo --shutdown            # Shut down the server on the default port
-$ mo --shutdown -p 6276    # Shut down the server on a specific port
+$ mo --status              # Show all running mo servers
+$ mo --shutdown            # Shut down the mo server on the default port
+$ mo --shutdown -p 6276    # Shut down the mo server on a specific port
 ```
 
-If you need the server to run in the foreground (e.g. for debugging), use `--foreground`:
+If you need the mo server to run in the foreground (e.g. for debugging), use `--foreground`:
 
 ``` console
 $ mo --foreground README.md
@@ -115,8 +116,9 @@ Click the restart button (bottom-right corner) to restart the `mo` server proces
 | `--port` | `-p` | `6275` | Server port |
 | `--open` | | | Always open browser |
 | `--no-open` | | | Never open browser |
-| `--shutdown` | | | Shut down the running server |
-| `--foreground` | | | Run server in foreground |
+| `--status` | | | Show all running mo servers |
+| `--shutdown` | | | Shut down the running mo server |
+| `--foreground` | | | Run mo server in foreground |
 
 ## Build
 
