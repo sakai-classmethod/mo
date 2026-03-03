@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/k1LoW/donegroup"
@@ -295,7 +296,7 @@ func (s *State) Subscribe() chan sseEvent {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ch := make(chan sseEvent, 4)
+	ch := make(chan sseEvent, 16)
 	s.subscribers[ch] = struct{}{}
 	return ch
 }
@@ -383,21 +384,46 @@ func (s *State) watchLoop() {
 			if !ok {
 				return
 			}
-			if event.Has(fsnotify.Write) {
-				slog.Info("file changed", "path", event.Name)
-				ids := s.findIDsByPath(event.Name)
-				for _, id := range ids {
-					s.sendEvent(sseEvent{
-						Name: "file-changed",
-						Data: fmt.Sprintf(`{"id":%d}`, id),
-					})
-				}
+			ids := s.findIDsByPath(event.Name)
+			if len(ids) == 0 {
+				break
 			}
-		case _, ok := <-s.watcher.Errors:
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+				slog.Info("file changed", "path", event.Name)
+				s.notifyFileChanged(ids)
+			}
+			// Editors using atomic save (write-to-temp + rename) cause
+			// the original inode to disappear, which removes the watch.
+			// Re-add the watch so subsequent saves are still detected.
+			if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+				time.AfterFunc(100*time.Millisecond, func() {
+					if err := s.watcher.Add(event.Name); err != nil {
+						// File is actually gone — remove from file list
+						slog.Info("file deleted, removing from list", "path", event.Name)
+						for _, id := range ids {
+							s.RemoveFile(id)
+						}
+					} else {
+						slog.Info("re-watching file", "path", event.Name)
+						s.notifyFileChanged(ids)
+					}
+				})
+			}
+		case err, ok := <-s.watcher.Errors:
 			if !ok {
 				return
 			}
+			slog.Warn("file watcher error", "error", err)
 		}
+	}
+}
+
+func (s *State) notifyFileChanged(ids []int) {
+	for _, id := range ids {
+		s.sendEvent(sseEvent{
+			Name: "file-changed",
+			Data: fmt.Sprintf(`{"id":%d}`, id),
+		})
 	}
 }
 
@@ -421,6 +447,7 @@ func (s *State) sendEvent(e sseEvent) {
 		select {
 		case ch <- e:
 		default:
+			slog.Warn("SSE event dropped (subscriber buffer full)", "event", e.Name)
 		}
 	}
 }

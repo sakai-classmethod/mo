@@ -12,6 +12,8 @@ export function useSSE(callbacks: SSECallbacks) {
   useEffect(() => {
     let disposed = false;
     let es: EventSource | null = null;
+    let retryDelay = 1000;
+    const maxRetryDelay = 30000;
 
     function connect() {
       if (disposed) return;
@@ -31,10 +33,15 @@ export function useSSE(callbacks: SSECallbacks) {
         }
       });
 
+      es.onopen = () => {
+        retryDelay = 1000;
+      };
+
       es.onerror = () => {
         es?.close();
         if (!disposed) {
-          setTimeout(connect, 2000);
+          setTimeout(connect, retryDelay);
+          retryDelay = Math.min(retryDelay * 2, maxRetryDelay);
         }
       };
     }
