@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.11.1](https://github.com/k1LoW/mo/compare/v0.11.0...v0.11.1) - 2026-03-03
+### New Features 🎉
+- Allow slashes in --target group names and validate invalid characters by @k1LoW in https://github.com/k1LoW/mo/pull/53
+
 ## [v0.11.0](https://github.com/k1LoW/mo/compare/v0.10.1...v0.11.0) - 2026-03-02
 ### Breaking Changes 🛠
 - feat: write logs to rotating files under XDG_STATE_HOME by @k1LoW in https://github.com/k1LoW/mo/pull/46
