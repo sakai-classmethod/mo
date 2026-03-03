@@ -85,23 +85,23 @@ describe("reorderFiles", () => {
     }));
 
     await reorderFiles("default", [3, 1, 2]);
-    expect(fetch).toHaveBeenCalledWith("/_/api/groups/default/order", {
+    expect(fetch).toHaveBeenCalledWith("/_/api/reorder", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileIds: [3, 1, 2] }),
+      body: JSON.stringify({ group: "default", fileIds: [3, 1, 2] }),
     });
   });
 
-  it("encodes group name in URL", async () => {
+  it("sends group name in body for slash-containing names", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
     }));
 
-    await reorderFiles("my group", [1, 2]);
-    expect(fetch).toHaveBeenCalledWith("/_/api/groups/my%20group/order", {
+    await reorderFiles("api/docs", [1, 2]);
+    expect(fetch).toHaveBeenCalledWith("/_/api/reorder", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileIds: [1, 2] }),
+      body: JSON.stringify({ group: "api/docs", fileIds: [1, 2] }),
     });
   });
 
