@@ -90,7 +90,7 @@ Key endpoints:
 - `DELETE /_/api/files/{id}` — Remove file
 - `GET /_/api/files/{id}/content` — File content (markdown)
 - `PUT /_/api/files/{id}/group` — Move file to another group
-- `PUT /_/api/groups/{name}/order` — Reorder files in a group
+- `PUT /_/api/reorder` — Reorder files in a group (group name in body)
 - `POST /_/api/files/open` — Open relative file link
 - `GET /_/events` — SSE (event types: `update`, `file-changed`, `restart`)
 

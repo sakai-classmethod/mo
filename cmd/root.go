@@ -105,7 +105,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&target, "target", "t", "default", "Tab group name")
+	rootCmd.Flags().StringVarP(&target, "target", "t", server.DefaultGroup, "Tab group name")
 	rootCmd.Flags().IntVarP(&port, "port", "p", 6275, "Server port")
 	rootCmd.Flags().BoolVar(&open, "open", false, "Always open browser (even when adding to existing group)")
 	rootCmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open browser automatically")
@@ -144,6 +144,12 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		return startServer(cmd.Context(), addr, filesByGroup)
 	}
+
+	resolved, err := server.ResolveGroupName(target)
+	if err != nil {
+		return fmt.Errorf("invalid target group name %q: %w", target, err)
+	}
+	target = resolved
 
 	files, err := resolveFiles(args)
 	if err != nil {
@@ -502,7 +508,7 @@ func openBrowser(addr string) {
 		return
 	}
 	url := fmt.Sprintf("http://%s", addr)
-	if target != "default" {
+	if target != server.DefaultGroup {
 		url = fmt.Sprintf("%s/%s", url, target)
 	}
 	if err := browser.OpenURL(url); err != nil {

@@ -426,7 +426,8 @@ func (s *State) sendEvent(e sseEvent) {
 }
 
 type reorderFilesRequest struct {
-	FileIDs []int `json:"fileIds"`
+	Group   string `json:"group"`
+	FileIDs []int  `json:"fileIds"`
 }
 
 type moveFileRequest struct {
@@ -455,7 +456,7 @@ func NewHandler(state *State) http.Handler {
 	mux.HandleFunc("DELETE /_/api/files/{id}", handleRemoveFile(state))
 	mux.HandleFunc("PUT /_/api/files/{id}/group", handleMoveFile(state))
 	mux.HandleFunc("GET /_/api/groups", handleGroups(state))
-	mux.HandleFunc("PUT /_/api/groups/{name}/order", handleReorderFiles(state))
+	mux.HandleFunc("PUT /_/api/reorder", handleReorderFiles(state))
 	mux.HandleFunc("GET /_/api/files/{id}/content", handleFileContent(state))
 	mux.HandleFunc("GET /_/api/files/{id}/raw/{path...}", handleFileRaw(state))
 	mux.HandleFunc("POST /_/api/files/open", handleOpenFile(state))
@@ -488,9 +489,10 @@ func handleAddFile(state *State) http.HandlerFunc {
 			return
 		}
 
-		group := req.Group
-		if group == "" {
-			group = "default"
+		group, err := ResolveGroupName(req.Group)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		entry := state.AddFile(absPath, group)
@@ -528,7 +530,12 @@ func handleMoveFile(state *State) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := state.MoveFile(id, req.Group); err != nil {
+		group, err := ResolveGroupName(req.Group)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := state.MoveFile(id, group); err != nil {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -538,13 +545,17 @@ func handleMoveFile(state *State) http.HandlerFunc {
 
 func handleReorderFiles(state *State) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		groupName := r.PathValue("name")
 		var req reorderFilesRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if !state.ReorderFiles(groupName, req.FileIDs) {
+		group, err := ResolveGroupName(req.Group)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if !state.ReorderFiles(group, req.FileIDs) {
 			http.Error(w, "invalid file IDs or group not found", http.StatusBadRequest)
 			return
 		}
@@ -646,7 +657,7 @@ func handleOpenFile(state *State) http.HandlerFunc {
 
 		groupName := state.FindGroupForFile(req.FileID)
 		if groupName == "" {
-			groupName = "default"
+			groupName = DefaultGroup
 		}
 
 		newEntry := state.AddFile(absPath, groupName)

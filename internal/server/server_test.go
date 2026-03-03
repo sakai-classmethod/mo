@@ -27,8 +27,8 @@ func newTestState(t *testing.T) *State {
 func TestReorderFiles(t *testing.T) {
 	t.Run("reorders files successfully", func(t *testing.T) {
 		s := newTestState(t)
-		s.groups["default"] = &Group{
-			Name: "default",
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
 			Files: []*FileEntry{
 				{ID: 1, Name: "a.md", Path: "/a.md"},
 				{ID: 2, Name: "b.md", Path: "/b.md"},
@@ -36,12 +36,12 @@ func TestReorderFiles(t *testing.T) {
 			},
 		}
 
-		ok := s.ReorderFiles("default", []int{3, 1, 2})
+		ok := s.ReorderFiles(DefaultGroup, []int{3, 1, 2})
 		if !ok {
 			t.Fatal("ReorderFiles returned false, want true")
 		}
 
-		files := s.groups["default"].Files
+		files := s.groups[DefaultGroup].Files
 		if files[0].ID != 3 || files[1].ID != 1 || files[2].ID != 2 {
 			t.Errorf("got order [%d, %d, %d], want [3, 1, 2]", files[0].ID, files[1].ID, files[2].ID)
 		}
@@ -57,15 +57,15 @@ func TestReorderFiles(t *testing.T) {
 
 	t.Run("returns false for mismatched count", func(t *testing.T) {
 		s := newTestState(t)
-		s.groups["default"] = &Group{
-			Name: "default",
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
 			Files: []*FileEntry{
 				{ID: 1, Name: "a.md", Path: "/a.md"},
 				{ID: 2, Name: "b.md", Path: "/b.md"},
 			},
 		}
 
-		ok := s.ReorderFiles("default", []int{1})
+		ok := s.ReorderFiles(DefaultGroup, []int{1})
 		if ok {
 			t.Fatal("ReorderFiles returned true for mismatched count")
 		}
@@ -73,15 +73,15 @@ func TestReorderFiles(t *testing.T) {
 
 	t.Run("returns false for unknown file ID", func(t *testing.T) {
 		s := newTestState(t)
-		s.groups["default"] = &Group{
-			Name: "default",
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
 			Files: []*FileEntry{
 				{ID: 1, Name: "a.md", Path: "/a.md"},
 				{ID: 2, Name: "b.md", Path: "/b.md"},
 			},
 		}
 
-		ok := s.ReorderFiles("default", []int{1, 99})
+		ok := s.ReorderFiles(DefaultGroup, []int{1, 99})
 		if ok {
 			t.Fatal("ReorderFiles returned true for unknown file ID")
 		}
@@ -296,11 +296,11 @@ func TestHandleReorderFiles(t *testing.T) {
 		}
 
 		handler := NewHandler(s)
-		body, err := json.Marshal(reorderFilesRequest{FileIDs: []int{2, 1}})
+		body, err := json.Marshal(reorderFilesRequest{Group: "docs", FileIDs: []int{2, 1}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		req := httptest.NewRequest("PUT", "/_/api/groups/docs/order", bytes.NewReader(body))
+		req := httptest.NewRequest("PUT", "/_/api/reorder", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -316,14 +316,45 @@ func TestHandleReorderFiles(t *testing.T) {
 		}
 	})
 
-	t.Run("returns 400 for invalid group", func(t *testing.T) {
+	t.Run("reorders files in group with slashes", func(t *testing.T) {
 		s := newTestState(t)
+		s.groups["api/docs"] = &Group{
+			Name: "api/docs",
+			Files: []*FileEntry{
+				{ID: 1, Name: "a.md", Path: "/a.md"},
+				{ID: 2, Name: "b.md", Path: "/b.md"},
+			},
+		}
+
 		handler := NewHandler(s)
-		body, err := json.Marshal(reorderFilesRequest{FileIDs: []int{1}})
+		body, err := json.Marshal(reorderFilesRequest{Group: "api/docs", FileIDs: []int{2, 1}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		req := httptest.NewRequest("PUT", "/_/api/groups/nonexistent/order", bytes.NewReader(body))
+		req := httptest.NewRequest("PUT", "/_/api/reorder", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusNoContent)
+		}
+
+		files := s.groups["api/docs"].Files
+		if files[0].ID != 2 || files[1].ID != 1 {
+			t.Errorf("got order [%d, %d], want [2, 1]", files[0].ID, files[1].ID)
+		}
+	})
+
+	t.Run("returns 400 for invalid group", func(t *testing.T) {
+		s := newTestState(t)
+		handler := NewHandler(s)
+		body, err := json.Marshal(reorderFilesRequest{Group: "nonexistent", FileIDs: []int{1}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest("PUT", "/_/api/reorder", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 
@@ -336,9 +367,9 @@ func TestHandleReorderFiles(t *testing.T) {
 
 	t.Run("returns 400 for invalid JSON", func(t *testing.T) {
 		s := newTestState(t)
-		s.groups["default"] = &Group{Name: "default", Files: []*FileEntry{}}
+		s.groups[DefaultGroup] = &Group{Name: DefaultGroup, Files: []*FileEntry{}}
 		handler := NewHandler(s)
-		req := httptest.NewRequest("PUT", "/_/api/groups/default/order", bytes.NewReader([]byte("invalid")))
+		req := httptest.NewRequest("PUT", "/_/api/reorder", bytes.NewReader([]byte("invalid")))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 

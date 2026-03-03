@@ -53,10 +53,10 @@ export async function reorderFiles(
   groupName: string,
   fileIds: number[],
 ): Promise<void> {
-  const res = await fetch(`/_/api/groups/${encodeURIComponent(groupName)}/order`, {
+  const res = await fetch("/_/api/reorder", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileIds }),
+    body: JSON.stringify({ group: groupName, fileIds }),
   });
   if (!res.ok) throw new Error("Failed to reorder files");
 }
