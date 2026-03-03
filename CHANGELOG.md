@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.11.2](https://github.com/k1LoW/mo/compare/v0.11.1...v0.11.2) - 2026-03-03
+### New Features 🎉
+- fix: handle atomic saves and improve live-reload reliability by @k1LoW in https://github.com/k1LoW/mo/pull/54
+
 ## [v0.11.1](https://github.com/k1LoW/mo/compare/v0.11.0...v0.11.1) - 2026-03-03
 ### New Features 🎉
 - Allow slashes in --target group names and validate invalid characters by @k1LoW in https://github.com/k1LoW/mo/pull/53
