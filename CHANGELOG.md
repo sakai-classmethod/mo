@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.12.0](https://github.com/k1LoW/mo/compare/v0.11.4...v0.12.0) - 2026-03-04
+### New Features 🎉
+- feat: support YAML frontmatter in Markdown files by @k1LoW in https://github.com/k1LoW/mo/pull/60
+- feat: support MDX files by @k1LoW in https://github.com/k1LoW/mo/pull/62
+
 ## [v0.11.4](https://github.com/k1LoW/mo/compare/v0.11.3...v0.11.4) - 2026-03-04
 ### Other Changes
 - Include frontend dependency licenses in CREDITS by @k1LoW in https://github.com/k1LoW/mo/pull/59
