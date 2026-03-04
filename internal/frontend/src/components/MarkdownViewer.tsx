@@ -14,6 +14,7 @@ import { RemoveButton } from "./RemoveButton";
 import { resolveLink, resolveImageSrc, extractLanguage } from "../utils/resolve";
 import { extractText } from "../utils/extractText";
 import { parseFrontmatter } from "../utils/frontmatter";
+import { stripMdxSyntax } from "../utils/mdx";
 import type { TocHeading } from "./TocPanel";
 import type { Components } from "react-markdown";
 import "github-markdown-css/github-markdown.css";
@@ -399,7 +400,7 @@ export function MarkdownViewer({ fileId, revision, onFileOpened, onHeadingsChang
 
   const handleLinkClick = useCallback(
     async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      if (!href.endsWith(".md")) return;
+      if (!href.endsWith(".md") && !href.endsWith(".mdx")) return;
       if (href.startsWith("http://") || href.startsWith("https://")) return;
       e.preventDefault();
       try {
@@ -504,7 +505,7 @@ export function MarkdownViewer({ fileId, revision, onFileOpened, onHeadingsChang
     if (isRawView) {
       return <RawView content={content} />;
     }
-    const md = parsed ? parsed.content : content;
+    const md = stripMdxSyntax(parsed ? parsed.content : content);
     return (
       <>
         {parsed && <FrontmatterBlock yaml={parsed.yaml} />}

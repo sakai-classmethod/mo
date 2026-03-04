@@ -20,7 +20,7 @@ export function resolveLink(
     return { type: "hash" };
   }
   const hrefPath = href.split("#")[0];
-  if (hrefPath.endsWith(".md")) {
+  if (hrefPath.endsWith(".md") || hrefPath.endsWith(".mdx")) {
     return { type: "markdown", hrefPath };
   }
   const basename = hrefPath.split("/").pop() || "";

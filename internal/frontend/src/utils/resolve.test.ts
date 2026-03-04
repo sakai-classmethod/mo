@@ -39,6 +39,27 @@ describe("resolveLink", () => {
     });
   });
 
+  it("returns markdown for .mdx links", () => {
+    expect(resolveLink("component.mdx", 5)).toEqual({
+      type: "markdown",
+      hrefPath: "component.mdx",
+    });
+  });
+
+  it("returns markdown for nested path .mdx links", () => {
+    expect(resolveLink("docs/intro.mdx", 3)).toEqual({
+      type: "markdown",
+      hrefPath: "docs/intro.mdx",
+    });
+  });
+
+  it("strips anchor from .mdx links", () => {
+    expect(resolveLink("page.mdx#section", 5)).toEqual({
+      type: "markdown",
+      hrefPath: "page.mdx",
+    });
+  });
+
   it("returns file for links with non-md extensions", () => {
     expect(resolveLink("image.png", 7)).toEqual({
       type: "file",
