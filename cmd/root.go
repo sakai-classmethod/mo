@@ -250,7 +250,7 @@ func resolvePatterns(patterns []string) ([]string, error) {
 	var resolved []string
 	for _, pat := range patterns {
 		if !hasGlobChars(pat) {
-			return nil, fmt.Errorf("--watch pattern %q does not contain glob characters (* ? [); use file arguments instead", pat)
+			return nil, fmt.Errorf("pattern %q does not contain glob characters (* ? [); use file arguments instead", pat)
 		}
 		abs, err := filepath.Abs(pat)
 		if err != nil {

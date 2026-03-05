@@ -600,7 +600,7 @@ func TestHandleRemovePattern(t *testing.T) {
 		}
 
 		handler := NewHandler(s)
-		body, err := json.Marshal(removePatternRequest{Pattern: pattern, Group: DefaultGroup})
+		body, err := json.Marshal(patternRequest{Pattern: pattern, Group: DefaultGroup})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -618,7 +618,7 @@ func TestHandleRemovePattern(t *testing.T) {
 	t.Run("returns 404 for unknown pattern", func(t *testing.T) {
 		s := newTestState(t)
 		handler := NewHandler(s)
-		body, err := json.Marshal(removePatternRequest{Pattern: "/nonexistent/*.md", Group: DefaultGroup})
+		body, err := json.Marshal(patternRequest{Pattern: "/nonexistent/*.md", Group: DefaultGroup})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -681,7 +681,7 @@ func TestHandleAddPattern(t *testing.T) {
 	handler := NewHandler(s)
 
 	pattern := filepath.Join(dir, "*.md")
-	body, err := json.Marshal(addPatternRequest{Pattern: pattern, Group: DefaultGroup})
+	body, err := json.Marshal(patternRequest{Pattern: pattern, Group: DefaultGroup})
 	if err != nil {
 		t.Fatal(err)
 	}

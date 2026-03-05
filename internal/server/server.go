@@ -450,10 +450,12 @@ func (s *State) RemovePattern(absPattern, groupName string) bool {
 		return false
 	}
 
-	s.removeDirWatchesForPattern(removed)
+	s.walkDirsForPattern(removed, s.removeDirWatch)
 
 	slog.Info("pattern removed", "pattern", absPattern, "group", groupName)
+	s.mu.Lock()
 	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.mu.Unlock()
 	return true
 }
 
@@ -505,12 +507,12 @@ func (s *State) ExportState() (string, error) {
 	return WriteRestoreFile(data)
 }
 
-func (s *State) removeDirWatchesForPattern(gp *GlobPattern) {
+func (s *State) walkDirsForPattern(gp *GlobPattern, fn func(string)) {
 	if s.watcher == nil {
 		return
 	}
 	if !gp.IsRecursive() {
-		s.removeDirWatch(gp.BaseDir)
+		fn(gp.BaseDir)
 		return
 	}
 
@@ -519,7 +521,7 @@ func (s *State) removeDirWatchesForPattern(gp *GlobPattern) {
 			return nil
 		}
 		if d.IsDir() {
-			s.removeDirWatch(path)
+			fn(path)
 		}
 		return nil
 	})
@@ -619,23 +621,7 @@ func (s *State) sendEvent(e sseEvent) {
 }
 
 func (s *State) watchDirsForPattern(gp *GlobPattern) {
-	if s.watcher == nil {
-		return
-	}
-	if !gp.IsRecursive() {
-		s.addDirWatch(gp.BaseDir)
-		return
-	}
-
-	filepath.WalkDir(gp.BaseDir, func(path string, d os.DirEntry, err error) error { //nolint:errcheck
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			s.addDirWatch(path)
-		}
-		return nil
-	})
+	s.walkDirsForPattern(gp, s.addDirWatch)
 }
 
 func (s *State) addDirWatch(dir string) {
@@ -721,18 +707,13 @@ type addFileRequest struct {
 	Group string `json:"group"`
 }
 
-type addPatternRequest struct {
+type patternRequest struct {
 	Pattern string `json:"pattern"`
 	Group   string `json:"group"`
 }
 
 type addPatternResponse struct {
 	Matched int `json:"matched"`
-}
-
-type removePatternRequest struct {
-	Pattern string `json:"pattern"`
-	Group   string `json:"group"`
 }
 
 type fileContentResponse struct {
@@ -968,7 +949,7 @@ func handleOpenFile(state *State) http.HandlerFunc {
 
 func handleAddPattern(state *State) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req addPatternRequest
+		var req patternRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -995,7 +976,7 @@ func handleAddPattern(state *State) http.HandlerFunc {
 
 func handleRemovePattern(state *State) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req removePatternRequest
+		var req patternRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -1042,9 +1023,8 @@ func handleShutdown(state *State) http.HandlerFunc {
 }
 
 type statusGroup struct {
-	Name     string       `json:"name"`
-	Files    []*FileEntry `json:"files"`
-	Patterns []string     `json:"patterns,omitempty"`
+	Group
+	Patterns []string `json:"patterns,omitempty"`
 }
 
 func handleStatus(state *State) http.HandlerFunc {
@@ -1053,8 +1033,7 @@ func handleStatus(state *State) http.HandlerFunc {
 		statusGroups := make([]statusGroup, len(groups))
 		for i, g := range groups {
 			statusGroups[i] = statusGroup{
-				Name:     g.Name,
-				Files:    g.Files,
+				Group:    g,
 				Patterns: state.PatternsForGroup(g.Name),
 			}
 		}
