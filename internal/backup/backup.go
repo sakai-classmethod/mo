@@ -70,7 +70,7 @@ func Save(port int, data any) (retErr error) {
 }
 
 // Load reads the backup file for the given port.
-// Returns nil, nil if the file does not exist.
+// Returns a nil error if the file does not exist.
 func Load(port int, dest any) error {
 	p, err := Path(port)
 	if err != nil {
