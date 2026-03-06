@@ -90,7 +90,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (groups.length === 0) return;
+    if (groups.length === 0) {
+      setActiveFileId(null);
+      return;
+    }
 
     const group = groups.find((g) => g.name === activeGroup);
     if (!group) {

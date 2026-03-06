@@ -231,9 +231,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// running, just open the browser and exit.
 	if len(files) == 0 && len(patterns) == 0 {
 		if _, err := probeServer(addr, probeTimeoutDefault); err == nil {
-			if !noOpen {
-				openBrowser(addr)
-			}
+			openBrowser(addr)
 			return nil
 		}
 	}
