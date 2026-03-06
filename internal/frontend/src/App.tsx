@@ -4,6 +4,7 @@ import { MarkdownViewer } from "./components/MarkdownViewer";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { GroupDropdown } from "./components/GroupDropdown";
 import { ViewModeToggle, type ViewMode } from "./components/ViewModeToggle";
+import { SearchToggle } from "./components/SearchToggle";
 import { RestartButton } from "./components/RestartButton";
 import { TocPanel } from "./components/TocPanel";
 import type { TocHeading } from "./components/TocPanel";
@@ -28,6 +29,7 @@ export function App() {
   const [tocOpen, setTocOpen] = useState(false);
   const [headings, setHeadings] = useState<TocHeading[]>([]);
   const [contentRevision, setContentRevision] = useState(0);
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [viewModes, setViewModes] = useState<Record<string, ViewMode>>(() => {
     try {
       const stored = localStorage.getItem(VIEWMODE_STORAGE_KEY);
@@ -152,6 +154,10 @@ export function App() {
     });
   }, [activeGroup]);
 
+  const handleSearchToggle = useCallback(() => {
+    setSearchQuery((prev) => (prev != null ? null : ""));
+  }, []);
+
   const handleGroupChange = (name: string) => {
     setActiveGroup(name);
     setActiveFileId(null);
@@ -222,6 +228,7 @@ export function App() {
           onGroupChange={handleGroupChange}
         />
         <ViewModeToggle viewMode={currentViewMode} onToggle={handleViewModeToggle} />
+        <SearchToggle isOpen={searchQuery != null} onToggle={handleSearchToggle} />
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -234,6 +241,8 @@ export function App() {
           onFileSelect={setActiveFileId}
           onFilesReorder={handleFilesReorder}
           viewMode={currentViewMode}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />}
         <main className="flex-1 flex flex-col overflow-hidden">
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 bg-gh-bg">

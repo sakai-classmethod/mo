@@ -35,7 +35,7 @@ function getInitialWidth(): number {
   return DEFAULT_WIDTH;
 }
 
-interface SortableFileItemProps {
+interface FileItemProps {
   file: FileEntry;
   isActive: boolean;
   menuOpenId: number | null;
@@ -48,7 +48,7 @@ interface SortableFileItemProps {
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
-function SortableFileItem({
+function FileItem({
   file,
   isActive,
   menuOpenId,
@@ -59,24 +59,9 @@ function SortableFileItem({
   onMoveToGroup,
   onRemove,
   menuRef,
-}: SortableFileItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: file.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
-  };
-
+}: FileItemProps) {
   return (
-    <div ref={setNodeRef} style={style} className="relative group/file" {...attributes} {...listeners}>
+    <div className="relative group/file">
       <button
         className={`flex items-center gap-2 w-full px-3 py-2 border-none cursor-pointer text-left text-sm transition-colors duration-150 ${
           isActive
@@ -107,6 +92,29 @@ function SortableFileItem({
   );
 }
 
+function SortableFileItem(props: FileItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.file.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <FileItem {...props} />
+    </div>
+  );
+}
+
 interface SidebarProps {
   groups: Group[];
   activeGroup: string;
@@ -114,6 +122,8 @@ interface SidebarProps {
   onFileSelect: (id: number) => void;
   onFilesReorder: (groupName: string, fileIds: number[]) => void;
   viewMode: ViewMode;
+  searchQuery: string | null;
+  onSearchQueryChange: (query: string | null) => void;
 }
 
 export function Sidebar({
@@ -123,9 +133,28 @@ export function Sidebar({
   onFileSelect,
   onFilesReorder,
   viewMode,
+  searchQuery,
+  onSearchQueryChange,
 }: SidebarProps) {
   const currentGroup = groups.find((g) => g.name === activeGroup);
-  const files = currentGroup?.files ?? [];
+  const allFiles = currentGroup?.files ?? [];
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const searchOpen = searchQuery != null;
+  const isSearching = searchQuery != null && searchQuery.length > 0;
+
+  const files = useMemo(() => {
+    if (!searchQuery) return allFiles;
+    const q = searchQuery.toLowerCase();
+    return allFiles.filter((f) => f.name.toLowerCase().includes(q));
+  }, [allFiles, searchQuery]);
+
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchOpen]);
+
   const [width, setWidth] = useState(getInitialWidth);
   const resizeDragging = useRef(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
@@ -239,6 +268,19 @@ export function Sidebar({
       className="relative bg-gh-bg-sidebar border-r border-gh-border flex flex-col overflow-y-auto shrink-0"
       style={{ width }}
     >
+      {searchOpen && (
+        <div className="px-2 pt-2 pb-1">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") onSearchQueryChange(null); }}
+            placeholder="Search files..."
+            className="w-full px-2 py-1.5 text-sm bg-gh-bg border border-gh-border rounded-md text-gh-text placeholder:text-gh-text-secondary outline-none focus:border-gh-accent"
+          />
+        </div>
+      )}
       <nav className="flex flex-col pb-1">
         {viewMode === "tree" ? (
           <TreeView
@@ -254,6 +296,22 @@ export function Sidebar({
             onRemove={handleRemove}
             menuRef={menuRef}
           />
+        ) : isSearching ? (
+          files.map((f) => (
+            <FileItem
+              key={f.id}
+              file={f}
+              isActive={f.id === activeFileId}
+              menuOpenId={menuOpenId}
+              otherGroups={otherGroups}
+              onFileSelect={onFileSelect}
+              onMenuToggle={handleMenuToggle}
+              onOpenInNewTab={handleOpenInNewTab}
+              onMoveToGroup={handleMoveToGroup}
+              onRemove={handleRemove}
+              menuRef={menuRef}
+            />
+          ))
         ) : (
           <DndContext
             sensors={sensors}
