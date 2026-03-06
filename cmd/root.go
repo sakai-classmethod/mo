@@ -40,6 +40,7 @@ var (
 	noOpen         bool
 	restore        string
 	shutdownServer bool
+	restartServer  bool
 	foreground     bool
 	statusServer   bool
 	watchPatterns   []string
@@ -132,6 +133,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open browser automatically")
 	rootCmd.MarkFlagsMutuallyExclusive("open", "no-open")
 	rootCmd.Flags().BoolVar(&shutdownServer, "shutdown", false, "Shut down the running mo server on the specified port")
+	rootCmd.Flags().BoolVar(&restartServer, "restart", false, "Restart the running mo server on the specified port")
 	rootCmd.Flags().StringVar(&restore, "restore", "", "Restore state from file (internal use)")
 	rootCmd.Flags().MarkHidden("restore") //nolint:errcheck
 	rootCmd.Flags().BoolVar(&foreground, "foreground", false, "Run mo server in foreground (do not background)")
@@ -158,6 +160,10 @@ func run(cmd *cobra.Command, args []string) error {
 
 	if shutdownServer {
 		return doShutdown(addr)
+	}
+
+	if restartServer {
+		return doRestart(addr)
 	}
 
 	if len(unwatchPatterns) > 0 {
@@ -395,6 +401,27 @@ func doShutdown(addr string) error {
 
 	slog.Info("shutdown request sent", "addr", addr)
 	fmt.Fprintf(os.Stderr, "mo: shutdown request sent to %s\n", addr)
+	return nil
+}
+
+func doRestart(addr string) error {
+	result, err := probeServer(addr)
+	if err != nil {
+		return err
+	}
+
+	resp, err := result.client.Post(fmt.Sprintf("http://%s/_/api/restart", addr), "application/json", nil)
+	if err != nil {
+		return fmt.Errorf("failed to send restart request: %w", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("unexpected response from server: %s", resp.Status)
+	}
+
+	slog.Info("restart request sent", "addr", addr)
+	fmt.Fprintf(os.Stderr, "mo: restart request sent to %s\n", addr)
 	return nil
 }
 

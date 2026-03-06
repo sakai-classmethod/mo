@@ -49,6 +49,7 @@ make ci
 - `--unwatch` — Remove a watched glob pattern (repeatable)
 - `--status` — Show status of all running mo servers
 - `--shutdown` — Shut down the running mo server
+- `--restart` — Restart the running mo server
 - `--foreground` — Run mo server in foreground (do not background)
 
 ## Architecture

@@ -287,6 +287,35 @@ func TestHandleShutdown(t *testing.T) {
 	})
 }
 
+func TestHandleRestart(t *testing.T) {
+	t.Run("returns 202 and signals restartCh", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups["default"] = &Group{
+			Name:  "default",
+			Files: []*FileEntry{{ID: 1, Name: "a.md", Path: "/a.md"}},
+		}
+		handler := NewHandler(s)
+		req := httptest.NewRequest("POST", "/_/api/restart", nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusAccepted)
+		}
+
+		select {
+		case restoreFile := <-s.RestartCh():
+			if restoreFile == "" {
+				t.Fatal("restartCh should have received a non-empty restore file path")
+			}
+			os.Remove(restoreFile)
+		default:
+			t.Fatal("restartCh should have received a signal")
+		}
+	})
+}
+
 func TestHandleReorderFiles(t *testing.T) {
 	t.Run("reorders files via HTTP", func(t *testing.T) {
 		s := newTestState(t)
