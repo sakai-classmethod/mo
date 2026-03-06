@@ -135,6 +135,7 @@ func init() {
 	rootCmd.MarkFlagsMutuallyExclusive("open", "no-open")
 	rootCmd.Flags().BoolVar(&shutdownServer, "shutdown", false, "Shut down the running mo server on the specified port")
 	rootCmd.Flags().BoolVar(&restartServer, "restart", false, "Restart the running mo server on the specified port")
+	rootCmd.MarkFlagsMutuallyExclusive("shutdown", "restart")
 	rootCmd.Flags().StringVar(&restore, "restore", "", "Restore state from file (internal use)")
 	rootCmd.Flags().MarkHidden("restore") //nolint:errcheck
 	rootCmd.Flags().BoolVar(&foreground, "foreground", false, "Run mo server in foreground (do not background)")

@@ -309,7 +309,9 @@ func TestHandleRestart(t *testing.T) {
 			if restoreFile == "" {
 				t.Fatal("restartCh should have received a non-empty restore file path")
 			}
-			os.Remove(restoreFile)
+			t.Cleanup(func() {
+				_ = os.Remove(restoreFile)
+			})
 		default:
 			t.Fatal("restartCh should have received a signal")
 		}
