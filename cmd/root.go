@@ -551,7 +551,9 @@ type jsonStatusEntry struct {
 func writeJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		slog.Warn("failed to write JSON output", "error", err)
+	}
 }
 
 func deeplinksToJSON(entries []deeplinkEntry) []jsonFileEntry {
