@@ -1074,7 +1074,10 @@ func TestHandleUploadFile(t *testing.T) {
 		s := newTestState(t)
 		handler := NewHandler(s)
 
-		body, _ := json.Marshal(uploadFileRequest{Name: "test.md", Content: "# Hello", Group: DefaultGroup})
+		body, err := json.Marshal(uploadFileRequest{Name: "test.md", Content: "# Hello", Group: DefaultGroup})
+		if err != nil {
+			t.Fatal(err)
+		}
 		req := httptest.NewRequest("POST", "/_/api/files/upload", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1101,7 +1104,10 @@ func TestHandleUploadFile(t *testing.T) {
 		s := newTestState(t)
 		handler := NewHandler(s)
 
-		body, _ := json.Marshal(uploadFileRequest{Name: "", Content: "# Hello", Group: DefaultGroup})
+		body, err := json.Marshal(uploadFileRequest{Name: "", Content: "# Hello", Group: DefaultGroup})
+		if err != nil {
+			t.Fatal(err)
+		}
 		req := httptest.NewRequest("POST", "/_/api/files/upload", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1161,7 +1167,10 @@ func TestUploadedFileContent(t *testing.T) {
 		entry := s.AddUploadedFile("test.md", "# Hello", DefaultGroup)
 
 		handler := NewHandler(s)
-		body, _ := json.Marshal(openFileRequest{FileID: entry.ID, Path: "./other.md"})
+		body, err := json.Marshal(openFileRequest{FileID: entry.ID, Path: "./other.md"})
+		if err != nil {
+			t.Fatal(err)
+		}
 		req := httptest.NewRequest("POST", "/_/api/files/open", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
