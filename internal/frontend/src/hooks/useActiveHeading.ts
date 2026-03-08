@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 export function useActiveHeading(
   headingIds: string[],
@@ -6,6 +6,13 @@ export function useActiveHeading(
 ): string | null {
   const activeIdRef = useRef<string | null>(null);
   const subscribersRef = useRef(new Set<() => void>());
+
+  const subscribe = useCallback((cb: () => void) => {
+    subscribersRef.current.add(cb);
+    return () => subscribersRef.current.delete(cb);
+  }, []);
+
+  const getSnapshot = useCallback(() => activeIdRef.current, []);
 
   useEffect(() => {
     if (!scrollContainer || headingIds.length === 0) {
@@ -54,11 +61,5 @@ export function useActiveHeading(
     return () => observer.disconnect();
   }, [headingIds, scrollContainer]);
 
-  return useSyncExternalStore(
-    (cb) => {
-      subscribersRef.current.add(cb);
-      return () => subscribersRef.current.delete(cb);
-    },
-    () => activeIdRef.current,
-  );
+  return useSyncExternalStore(subscribe, getSnapshot);
 }

@@ -56,37 +56,33 @@ export function App() {
     setPrevGroups(groups);
     setPrevActiveGroup(activeGroup);
 
-    // Auto open/close sidebar based on file count
-    const currentGroup = groups.find((g) => g.name === activeGroup);
-    setSidebarOpen(currentGroup != null && currentGroup.files.length >= 2);
+    // Active file selection and sidebar auto open/close
+    const group = groups.find((g) => g.name === activeGroup);
+    setSidebarOpen(group != null && group.files.length >= 2);
 
-    // Active file selection
     if (groups.length === 0) {
       setActiveFileId(null);
+    } else if (!group) {
+      const sortedGroups = [...groups].sort((a, b) => {
+        if (a.name === "default") return 1;
+        if (b.name === "default") return -1;
+        return a.name.localeCompare(b.name);
+      });
+      setActiveGroup(sortedGroups[0].name);
+    } else if (group.files.length === 0) {
+      setActiveFileId(null);
+    } else if (initialFileId != null) {
+      setInitialFileId(null);
+      setActiveFileId(
+        group.files.some((f) => f.id === initialFileId)
+          ? initialFileId
+          : group.files[0].id,
+      );
     } else {
-      const group = groups.find((g) => g.name === activeGroup);
-      if (!group) {
-        const sortedGroups = [...groups].sort((a, b) => {
-          if (a.name === "default") return 1;
-          if (b.name === "default") return -1;
-          return a.name.localeCompare(b.name);
-        });
-        setActiveGroup(sortedGroups[0].name);
-      } else if (group.files.length === 0) {
-        setActiveFileId(null);
-      } else if (initialFileId != null) {
-        setInitialFileId(null);
-        setActiveFileId(
-          group.files.some((f) => f.id === initialFileId)
-            ? initialFileId
-            : group.files[0].id,
-        );
-      } else {
-        setActiveFileId((prev) => {
-          if (group.files.some((f) => f.id === prev)) return prev;
-          return group.files[0].id;
-        });
-      }
+      setActiveFileId((prev) => {
+        if (group.files.some((f) => f.id === prev)) return prev;
+        return group.files[0].id;
+      });
     }
   }
 

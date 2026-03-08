@@ -525,7 +525,7 @@ export function MarkdownViewer({ fileId, fileName, revision, onFileOpened, onHea
       prevHeadingsKey.current = key;
       onHeadingsChange(newHeadings);
     }
-  });
+  }, [isRawView, renderedContent, onHeadingsChange]);
 
   if (loading) {
     return <div className="flex items-center justify-center h-50 text-gh-text-secondary text-sm">Loading...</div>;
