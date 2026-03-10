@@ -94,38 +94,33 @@ export function MermaidBlock({ code }: { code: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const width = containerRef.current?.offsetWidth;
 
-    ensureMermaidInit();
-    mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
-
-    renderMermaid(code, width)
-      .then((renderedSvg) => {
-        if (!cancelled) setSvg(renderedSvg);
-      })
-      .catch(() => {
-        if (!cancelled) setSvg("");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [code]);
-
-  // Re-render on theme change
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
+    const doRender = () => {
       const width = containerRef.current?.offsetWidth;
+      ensureMermaidInit();
       mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
       renderMermaid(code, width)
-        .then((renderedSvg) => setSvg(renderedSvg))
-        .catch(() => {});
-    });
+        .then((renderedSvg) => {
+          if (!cancelled) setSvg(renderedSvg);
+        })
+        .catch(() => {
+          if (!cancelled) setSvg("");
+        });
+    };
+
+    doRender();
+
+    // Re-render on theme change
+    const observer = new MutationObserver(() => doRender());
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
     });
-    return () => observer.disconnect();
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
   }, [code]);
 
   if (svg) {
