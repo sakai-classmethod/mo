@@ -314,6 +314,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prompt only when actually starting a new server (not adding to existing one).
+	if !isLoopbackBind(bind) {
+		slog.Warn("binding to non-loopback address", "bind", bind, "dangerously-allow-remote-access", dangerouslyAllowRemoteAccess)
+	}
 	if !isLoopbackBind(bind) && !dangerouslyAllowRemoteAccess {
 		o := termenv.NewOutput(os.Stderr)
 		c := func(s string) termenv.Style { return o.String(s).Foreground(o.Color("208")) }
