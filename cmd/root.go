@@ -179,7 +179,14 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Skip the prompt when --restore is set (i.e. restart via spawnNewProcess),
 	// because the user already confirmed when they first started the server.
-	if bind != "localhost" && bind != "127.0.0.1" && bind != "::1" && restore == "" {
+	// Also skip for non-start operations such as --status/--shutdown/--restart/--clear/--unwatch.
+	if !isLoopbackBind(bind) &&
+		restore == "" &&
+		!statusServer &&
+		!shutdownServer &&
+		!restartServer &&
+		!clearBackup &&
+		len(unwatchPatterns) == 0 {
 		o := termenv.NewOutput(os.Stderr)
 		c := func(s string) termenv.Style { return o.String(s).Foreground(o.Color("208")) }
 		fmt.Fprintln(os.Stderr, c("SECURITY WARNING:").Bold(),
@@ -190,6 +197,9 @@ func run(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Continue? [y/N] ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				return err
+			}
 			fmt.Fprintln(os.Stderr, "mo: canceled")
 			return nil
 		}
@@ -392,6 +402,14 @@ func loadRestoreData(path string) (map[string][]string, map[string][]string, []s
 		return nil, nil, nil, err
 	}
 	return rd.Groups, rd.Patterns, rd.UploadedFiles, nil
+}
+
+func isLoopbackBind(bind string) bool {
+	if bind == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(bind)
+	return ip != nil && ip.IsLoopback()
 }
 
 func hasGlobChars(s string) bool {
