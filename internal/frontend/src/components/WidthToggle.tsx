@@ -3,6 +3,11 @@ interface WidthToggleProps {
   onToggle: () => void;
 }
 
+// Inward arrows →← (compress)
+const COMPRESS_PATH = "M2 12h8m0 0l-4-5M10 12l-4 5M22 12h-8m0 0l4-5M14 12l4 5";
+// Outward arrows ←→ (expand)
+const EXPAND_PATH = "M10 12H2m0 0l4-5M2 12l4 5M14 12h8m0 0l-4-5M22 12l-4 5";
+
 export function WidthToggle({ isWide, onToggle }: WidthToggleProps) {
   return (
     <button
@@ -10,37 +15,19 @@ export function WidthToggle({ isWide, onToggle }: WidthToggleProps) {
       onClick={onToggle}
       title={isWide ? "Narrow view" : "Wide view"}
     >
-      {isWide ? (
-        /* Compress: inward arrows →← (arrowheads at center) */
-        <svg
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2 12h8m0 0l-4-5M10 12l-4 5M22 12h-8m0 0l4-5M14 12l4 5"
-          />
-        </svg>
-      ) : (
-        /* Expand: outward arrows ←→ (arrowheads at edges) */
-        <svg
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10 12H2m0 0l4-5M2 12l4 5M14 12h8m0 0l-4-5M22 12l-4 5"
-          />
-        </svg>
-      )}
+      <svg
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d={isWide ? COMPRESS_PATH : EXPAND_PATH}
+        />
+      </svg>
     </button>
   );
 }
