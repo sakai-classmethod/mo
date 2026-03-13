@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.18.3](https://github.com/k1LoW/mo/compare/v0.18.2...v0.18.3) - 2026-03-13
+### Dependency Updates ⬆️
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/111
+- chore(deps): bump the dependencies group in /internal/frontend with 10 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/112
+### Other Changes
+- fix: debounce watcher file change events by @k1LoW in https://github.com/k1LoW/mo/pull/109
+
 ## [v0.18.2](https://github.com/k1LoW/mo/compare/v0.18.1...v0.18.2) - 2026-03-11
 ### Other Changes
 - feat: reject binary files in AddFile by @k1LoW in https://github.com/k1LoW/mo/pull/107
