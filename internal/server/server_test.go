@@ -1557,6 +1557,7 @@ func TestExtractTitle(t *testing.T) {
 		{"heading with extra spaces", "#   Spaced Out   ", "Spaced Out"},
 		{"bare hash", "#", ""},
 		{"bare hashes", "###", ""},
+		{"no space after hash", "#not-a-heading\n# Real Title", "Real Title"},
 		{"only first heading", "# First\n# Second", "First"},
 	}
 	for _, tt := range tests {

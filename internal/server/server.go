@@ -40,8 +40,12 @@ func extractTitle(content string) string {
 	for line := range strings.SplitSeq(content, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "#") {
-			title := strings.TrimLeft(trimmed, "#")
-			title = strings.TrimSpace(title)
+			after := strings.TrimLeft(trimmed, "#")
+			// ATX headings require a space after the # sequence (CommonMark spec).
+			if len(after) == 0 || after[0] != ' ' {
+				continue
+			}
+			title := strings.TrimSpace(after)
 			if title != "" {
 				return title
 			}
@@ -117,7 +121,6 @@ type State struct {
 	backupCh     chan struct{}     // dirty signal (buffered, size 1)
 	backupSaveFn func(RestoreData) // backup write callback
 	backupDone   chan struct{}     // closed when backupLoop exits
-
 }
 
 const defaultFileChangeDebounce = 200 * time.Millisecond
@@ -152,30 +155,41 @@ func NewState(ctx context.Context) *State {
 // ErrBinaryFile is returned when a file is detected as binary.
 var ErrBinaryFile = errors.New("binary file is not supported")
 
-// isBinaryFile checks whether the file at the given path is binary
-// by reading the first 8KB and looking for NUL bytes (same heuristic as Git).
-func isBinaryFile(path string) (bool, error) {
+// readFileHead reads the first 8KB of the file at path.
+// Returns the bytes read and any error (os.ErrNotExist is passed through).
+// Non-regular files return an error.
+func readFileHead(path string) ([]byte, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if !fi.Mode().IsRegular() {
-		return false, fmt.Errorf("not a regular file: %s", path)
+		return nil, fmt.Errorf("not a regular file: %s", path)
 	}
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer f.Close()
 	var buf [8192]byte
 	n, err := f.Read(buf[:])
 	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return buf[:n], nil
+}
+
+// isBinaryFile checks whether the file at the given path is binary
+// by reading the first 8KB and looking for NUL bytes (same heuristic as Git).
+func isBinaryFile(path string) (bool, error) {
+	head, err := readFileHead(path)
+	if err != nil {
 		return false, err
 	}
-	if n == 0 {
+	if len(head) == 0 {
 		return false, nil
 	}
-	return bytes.IndexByte(buf[:n], 0) >= 0, nil
+	return bytes.IndexByte(head, 0) >= 0, nil
 }
 
 func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
@@ -191,18 +205,17 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 	s.mu.RUnlock()
 
-	bin, err := isBinaryFile(absPath)
+	// Read file head once for both binary check and title extraction.
+	head, err := readFileHead(absPath)
 	if err != nil {
-		// If the file doesn't exist (yet), allow adding it.
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to read file %s: %w", absPath, err)
 		}
-	} else if bin {
+	} else if len(head) > 0 && bytes.IndexByte(head, 0) >= 0 {
 		return nil, fmt.Errorf("%s: %w", absPath, ErrBinaryFile)
 	}
 
-	// Extract title outside the lock to avoid I/O under mutex.
-	title := extractTitleFromFile(absPath)
+	title := extractTitle(string(head))
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
