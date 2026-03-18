@@ -39,6 +39,7 @@ function getInitialWidth(): number {
 interface FileItemProps {
   file: FileEntry;
   isActive: boolean;
+  showTitle: boolean;
   menuOpenId: string | null;
   otherGroups: Group[];
   onFileSelect: (id: string) => void;
@@ -52,6 +53,7 @@ interface FileItemProps {
 function FileItem({
   file,
   isActive,
+  showTitle,
   menuOpenId,
   otherGroups,
   onFileSelect,
@@ -73,7 +75,9 @@ function FileItem({
         title={file.uploaded ? file.name : file.path}
       >
         <FileIcon uploaded={file.uploaded} />
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">{file.name}</span>
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">
+          {(showTitle && file.title) || file.name}
+        </span>
       </button>
       <FileContextMenu
         file={file}
@@ -114,6 +118,7 @@ interface SidebarProps {
   onFileSelect: (id: string) => void;
   onFilesReorder: (groupName: string, fileIds: string[]) => void;
   viewMode: ViewMode;
+  showTitle: boolean;
   searchQuery: string | null;
   onSearchQueryChange: (query: string | null) => void;
 }
@@ -125,6 +130,7 @@ export function Sidebar({
   onFileSelect,
   onFilesReorder,
   viewMode,
+  showTitle,
   searchQuery,
   onSearchQueryChange,
 }: SidebarProps) {
@@ -140,7 +146,9 @@ export function Sidebar({
   const files = useMemo(() => {
     if (!searchQuery) return allFiles;
     const q = searchQuery.toLowerCase();
-    return allFiles.filter((f) => f.name.toLowerCase().includes(q));
+    return allFiles.filter(
+      (f) => f.name.toLowerCase().includes(q) || (f.title && f.title.toLowerCase().includes(q)),
+    );
   }, [allFiles, searchQuery]);
 
   useEffect(() => {
@@ -283,6 +291,7 @@ export function Sidebar({
             files={files}
             activeGroup={activeGroup}
             activeFileId={activeFileId}
+            showTitle={showTitle}
             menuOpenId={menuOpenId}
             otherGroups={otherGroups}
             onFileSelect={onFileSelect}
@@ -298,6 +307,7 @@ export function Sidebar({
               key={f.id}
               file={f}
               isActive={f.id === activeFileId}
+              showTitle={showTitle}
               menuOpenId={menuOpenId}
               otherGroups={otherGroups}
               onFileSelect={onFileSelect}
@@ -320,6 +330,7 @@ export function Sidebar({
                   key={f.id}
                   file={f}
                   isActive={f.id === activeFileId}
+                  showTitle={showTitle}
                   menuOpenId={menuOpenId}
                   otherGroups={otherGroups}
                   onFileSelect={onFileSelect}

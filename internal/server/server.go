@@ -29,8 +29,116 @@ type FileEntry struct {
 	Name     string `json:"name"`
 	ID       string `json:"id"`
 	Path     string `json:"path"`
+	Title    string `json:"title,omitempty"`
 	Uploaded bool   `json:"uploaded,omitempty"`
 	content  string // in-memory content for uploaded files
+}
+
+const headFileSizeLimit = 8192
+
+// leadingColumns counts the indentation of line in columns, expanding tabs to
+// the next 4-column tab stop (CommonMark §2.1).
+func leadingColumns(line string) int {
+	col := 0
+	for _, c := range line {
+		switch c {
+		case ' ':
+			col++
+		case '\t':
+			col = (col/4 + 1) * 4
+		default:
+			return col
+		}
+	}
+	return col
+}
+
+// extractTitle returns the text of the first Markdown heading (ATX-style)
+// found in content, or "" if none is found.
+func extractTitle(content string) string {
+	// Track the active fenced code block: fenceChar is '`' or '~' (0 = not in fence),
+	// fenceLen is the opening fence length. CommonMark requires the closing fence to
+	// use the same character and be at least as long as the opening fence.
+	fenceChar := byte(0)
+	fenceLen := 0
+	for line := range strings.SplitSeq(content, "\n") {
+		// CommonMark §4.6: lines with 4+ columns of leading indentation (spaces or tabs)
+		// are indented code blocks and must not be parsed as headings.
+		if leadingColumns(line) >= 4 {
+			continue
+		}
+		trimmed := strings.TrimSpace(line)
+
+		if fenceChar != 0 {
+			// Inside a fenced code block: look for a matching closing fence.
+			if len(trimmed) > 0 && trimmed[0] == fenceChar {
+				fl := len(trimmed) - len(strings.TrimLeft(trimmed, string(fenceChar)))
+				// Closing fence: same char, >= opening length, no trailing non-space.
+				if fl >= fenceLen && strings.TrimLeft(trimmed[fl:], " \t") == "" {
+					fenceChar = 0
+					fenceLen = 0
+				}
+			}
+			continue
+		}
+
+		// Detect fence opening: 3+ consecutive backticks or tildes.
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			fc := trimmed[0]
+			fl := len(trimmed) - len(strings.TrimLeft(trimmed, string(fc)))
+			fenceChar = fc
+			fenceLen = fl
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "#") {
+			// CommonMark: ATX headings have 1–6 '#' characters.
+			hashes := len(trimmed) - len(strings.TrimLeft(trimmed, "#"))
+			if hashes > 6 {
+				continue
+			}
+			after := trimmed[hashes:]
+			// ATX headings require a space or tab after the # sequence (CommonMark spec).
+			if len(after) == 0 || (after[0] != ' ' && after[0] != '\t') {
+				continue
+			}
+			title := strings.TrimSpace(after)
+			// Strip optional closing # sequence: "Title ###" → "Title" (CommonMark §4.2).
+			// If the entire trimmed content is #s (e.g. "# ###"), the heading is empty.
+			if len(title) > 0 && title[len(title)-1] == '#' {
+				i := len(title)
+				for i > 0 && title[i-1] == '#' {
+					i--
+				}
+				if i == 0 || (title[i-1] == ' ' || title[i-1] == '\t') {
+					if i == 0 {
+						title = ""
+					} else {
+						title = strings.TrimRight(title[:i], " \t")
+					}
+				}
+			}
+			if title != "" {
+				return title
+			}
+		}
+	}
+	return ""
+}
+
+// extractTitleFromFile reads the first 8KB of the file and extracts the title.
+// Returns ("", false) on read error so callers can skip updating stored titles.
+func extractTitleFromFile(path string) (string, bool) {
+	f, err := os.Open(path) //nolint:gosec
+	if err != nil {
+		return "", false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, headFileSizeLimit))
+	if err != nil {
+		return "", false
+	}
+	return extractTitle(string(data)), true
 }
 
 // FileID generates a deterministic file ID from an absolute path.
@@ -119,30 +227,23 @@ func NewState(ctx context.Context) *State {
 // ErrBinaryFile is returned when a file is detected as binary.
 var ErrBinaryFile = errors.New("binary file is not supported")
 
-// isBinaryFile checks whether the file at the given path is binary
-// by reading the first 8KB and looking for NUL bytes (same heuristic as Git).
-func isBinaryFile(path string) (bool, error) {
+// readFileHead reads the first 8KB of the file at path.
+// Returns the bytes read and any error (os.ErrNotExist is passed through).
+// Non-regular files return an error.
+func readFileHead(path string) ([]byte, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if !fi.Mode().IsRegular() {
-		return false, fmt.Errorf("not a regular file: %s", path)
+		return nil, fmt.Errorf("not a regular file: %s", path)
 	}
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	defer f.Close()
-	var buf [8192]byte
-	n, err := f.Read(buf[:])
-	if err != nil && !errors.Is(err, io.EOF) {
-		return false, err
-	}
-	if n == 0 {
-		return false, nil
-	}
-	return bytes.IndexByte(buf[:n], 0) >= 0, nil
+	return io.ReadAll(io.LimitReader(f, headFileSizeLimit))
 }
 
 func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
@@ -158,15 +259,17 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 	s.mu.RUnlock()
 
-	bin, err := isBinaryFile(absPath)
+	// Read file head once for both binary check and title extraction.
+	head, err := readFileHead(absPath)
 	if err != nil {
-		// If the file doesn't exist (yet), allow adding it.
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to read file %s: %w", absPath, err)
 		}
-	} else if bin {
+	} else if len(head) > 0 && bytes.IndexByte(head, 0) >= 0 {
 		return nil, fmt.Errorf("%s: %w", absPath, ErrBinaryFile)
 	}
+
+	title := extractTitle(string(head))
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,9 +288,10 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 
 	entry := &FileEntry{
-		Name: filepath.Base(absPath),
-		ID:   FileID(absPath),
-		Path: absPath,
+		Name:  filepath.Base(absPath),
+		ID:    FileID(absPath),
+		Path:  absPath,
+		Title: title,
 	}
 	g.Files = append(g.Files, entry)
 
@@ -227,9 +331,16 @@ func (s *State) AddUploadedFile(name, content, groupName string) *FileEntry {
 		s.groups[groupName] = g
 	}
 
+	head := content
+	if len(head) > headFileSizeLimit {
+		head = head[:headFileSizeLimit]
+	}
+	title := extractTitle(head)
+
 	entry := &FileEntry{
 		Name:     name,
 		ID:       id,
+		Title:    title,
 		Uploaded: true,
 		content:  content,
 	}
@@ -861,9 +972,31 @@ func (s *State) scheduleFileChanged(absPath string) {
 }
 
 func (s *State) notifyFileChangedByPath(absPath string) {
-	ids := s.findIDsByPath(absPath)
+	// Extract the title outside the lock (file I/O should not hold the mutex).
+	newTitle, titleOK := extractTitleFromFile(absPath)
+
+	// Single lock pass: collect IDs and update titles together.
+	var ids []string
+	titleChanged := false
+	s.mu.Lock()
+	for _, g := range s.groups {
+		for _, entry := range g.Files {
+			if entry.Path == absPath {
+				ids = append(ids, entry.ID)
+				if titleOK && entry.Title != newTitle {
+					entry.Title = newTitle
+					titleChanged = true
+				}
+			}
+		}
+	}
+	s.mu.Unlock()
+
 	if len(ids) == 0 {
 		return
+	}
+	if titleChanged {
+		s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	}
 	s.notifyFileChanged(ids)
 }

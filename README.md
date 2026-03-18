@@ -20,6 +20,7 @@
 - <img src="images/icons/group.svg" width="16" height="16" alt="group"> File grouping
 - <img src="images/icons/toc.svg" width="16" height="16" alt="toc"> Table of contents panel
 - <img src="images/icons/view-flat.svg" width="16" height="16" alt="flat view"> Flat / <img src="images/icons/view-tree.svg" width="16" height="16" alt="tree view"> tree sidebar view with drag-and-drop reorder and file search
+- <img src="images/icons/title-filename.svg" width="16" height="16" alt="file name"> File name / <img src="images/icons/title-heading.svg" width="16" height="16" alt="heading title"> heading title sidebar display toggle (per-group)
 - YAML frontmatter display (collapsible metadata block)
 - MDX file support (renders as Markdown, strips `import`/`export`, escapes JSX tags)
 - <img src="images/icons/width-expand.svg" width="16" height="16" alt="wide view"> Wide / <img src="images/icons/width-compress.svg" width="16" height="16" alt="narrow view"> narrow content width toggle

@@ -8,7 +8,7 @@ const groups: Group[] = [
   {
     name: "default",
     files: [
-      { id: "aaa11111", name: "README.md", path: "/README.md" },
+      { id: "aaa11111", name: "README.md", path: "/README.md", title: "Getting Started" },
       { id: "bbb22222", name: "GUIDE.md", path: "/GUIDE.md" },
     ],
   },
@@ -32,6 +32,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -50,6 +51,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -67,6 +69,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -89,6 +92,7 @@ describe("Sidebar", () => {
         onFileSelect={onFileSelect}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -107,6 +111,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -125,6 +130,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -141,6 +147,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery=""
         onSearchQueryChange={() => {}}
       />,
@@ -157,6 +164,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery={null}
         onSearchQueryChange={() => {}}
       />,
@@ -173,6 +181,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery="read"
         onSearchQueryChange={() => {}}
       />,
@@ -192,6 +201,7 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        showTitle={false}
         searchQuery=""
         onSearchQueryChange={onSearchQueryChange}
       />,
@@ -200,5 +210,60 @@ describe("Sidebar", () => {
     await user.click(input);
     await user.keyboard("{Escape}");
     expect(onSearchQueryChange).toHaveBeenCalledWith(null);
+  });
+
+  it("shows heading titles when showTitle is true", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        showTitle={true}
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("Getting Started")).toBeInTheDocument();
+    expect(screen.queryByText("README.md")).not.toBeInTheDocument();
+    expect(screen.getByText("GUIDE.md")).toBeInTheDocument();
+  });
+
+  it("shows file names when showTitle is false even if title exists", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        showTitle={false}
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("README.md")).toBeInTheDocument();
+    expect(screen.queryByText("Getting Started")).not.toBeInTheDocument();
+  });
+
+  it("search matches against title", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        showTitle={false}
+        searchQuery="getting"
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("README.md")).toBeInTheDocument();
+    expect(screen.queryByText("GUIDE.md")).not.toBeInTheDocument();
   });
 });
