@@ -1563,6 +1563,8 @@ func TestExtractTitle(t *testing.T) {
 		{"only heading inside fence", "```\n# Only In Fence\n```", ""},
 		{"only first heading", "# First\n# Second", "First"},
 		{"tab after hash", "#\tTab Title", "Tab Title"},
+		{"tab indented line", "\t# Not A Heading\n# Real Title", "Real Title"},
+		{"seven hashes", "####### Not A Heading\n# Real Title", "Real Title"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1650,7 +1652,7 @@ func TestAddUploadedFile_ExtractsTitle(t *testing.T) {
 	}
 }
 
-func TestUpdateTitleByPath(t *testing.T) {
+func TestNotifyFileChangedByPath_UpdatesTitle(t *testing.T) {
 	s := newTestState(t)
 
 	dir := t.TempDir()
@@ -1665,21 +1667,12 @@ func TestUpdateTitleByPath(t *testing.T) {
 		t.Fatalf("initial Title = %q, want %q", entry.Title, "Original Title")
 	}
 
-	// Update file content
+	// Update file content and trigger the production code path.
 	os.WriteFile(f, []byte("# Updated Title"), 0o600) //nolint:errcheck
+	s.notifyFileChangedByPath(f)
 
-	changed := s.UpdateTitleByPath(f)
-	if !changed {
-		t.Fatal("expected UpdateTitleByPath to return true")
-	}
 	if entry.Title != "Updated Title" {
 		t.Errorf("Title = %q, want %q", entry.Title, "Updated Title")
-	}
-
-	// Same content again — no change
-	changed = s.UpdateTitleByPath(f)
-	if changed {
-		t.Error("expected UpdateTitleByPath to return false (no change)")
 	}
 }
 

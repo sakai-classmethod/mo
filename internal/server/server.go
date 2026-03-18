@@ -41,8 +41,12 @@ const headFileSizeLimit = 8192
 func extractTitle(content string) string {
 	inFence := false
 	for line := range strings.SplitSeq(content, "\n") {
-		// CommonMark: lines with 4+ leading spaces are indented code blocks.
-		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		// CommonMark: a leading tab equals 4 columns at column 0 — indented code block.
+		if len(line) > 0 && line[0] == '\t' {
+			continue
+		}
+		// CommonMark: 4+ leading spaces = indented code block.
+		indent := len(line) - len(strings.TrimLeft(line, " "))
 		if indent >= 4 {
 			continue
 		}
@@ -55,7 +59,12 @@ func extractTitle(content string) string {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "#") {
-			after := strings.TrimLeft(trimmed, "#")
+			// CommonMark: ATX headings have 1–6 '#' characters.
+			hashes := len(trimmed) - len(strings.TrimLeft(trimmed, "#"))
+			if hashes > 6 {
+				continue
+			}
+			after := trimmed[hashes:]
 			// ATX headings require a space or tab after the # sequence (CommonMark spec).
 			if len(after) == 0 || (after[0] != ' ' && after[0] != '\t') {
 				continue
@@ -324,30 +333,6 @@ func (s *State) FindFile(id string) *FileEntry {
 		}
 	}
 	return nil
-}
-
-// UpdateTitleByPath re-extracts titles for all entries matching absPath.
-// File I/O happens outside the mutex lock. Returns true if any title changed.
-// If the file cannot be read (e.g. during an atomic save rename), the stored
-// title is left unchanged to avoid transient flicker.
-func (s *State) UpdateTitleByPath(absPath string) bool {
-	newTitle, ok := extractTitleFromFile(absPath)
-	if !ok {
-		return false
-	}
-
-	changed := false
-	s.mu.Lock()
-	for _, g := range s.groups {
-		for _, entry := range g.Files {
-			if entry.Path == absPath && entry.Title != newTitle {
-				entry.Title = newTitle
-				changed = true
-			}
-		}
-	}
-	s.mu.Unlock()
-	return changed
 }
 
 // FindGroupForFile returns the group name for a given file ID.
