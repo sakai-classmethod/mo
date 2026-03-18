@@ -1,5 +1,90 @@
 # Changelog
 
+## [v0.18.5](https://github.com/k1LoW/mo/compare/v0.18.4...v0.18.5) - 2026-03-18
+### Other Changes
+- docs: add SECURITY.md with vulnerability reporting policy by @k1LoW in https://github.com/k1LoW/mo/pull/119
+
+## [v0.18.4](https://github.com/k1LoW/mo/compare/v0.18.3...v0.18.4) - 2026-03-15
+### Other Changes
+- refactor: apply modernize linter suggestions by @k1LoW in https://github.com/k1LoW/mo/pull/113
+- fix: update undici to 7.24.3 to resolve security vulnerabilities by @k1LoW in https://github.com/k1LoW/mo/pull/115
+
+## [v0.18.3](https://github.com/k1LoW/mo/compare/v0.18.2...v0.18.3) - 2026-03-13
+### Dependency Updates ⬆️
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/111
+- chore(deps): bump the dependencies group in /internal/frontend with 10 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/112
+### Other Changes
+- fix: debounce watcher file change events by @k1LoW in https://github.com/k1LoW/mo/pull/109
+
+## [v0.18.2](https://github.com/k1LoW/mo/compare/v0.18.1...v0.18.2) - 2026-03-11
+### Other Changes
+- feat: reject binary files in AddFile by @k1LoW in https://github.com/k1LoW/mo/pull/107
+- feat: syntax highlight non-markdown text files with Shiki by @k1LoW in https://github.com/k1LoW/mo/pull/108
+
+## [v0.18.1](https://github.com/k1LoW/mo/compare/v0.18.0...v0.18.1) - 2026-03-10
+### Other Changes
+- feat: add --skip-bind-address-confirmation flag to bypass non-loopback bind prompt by @110y in https://github.com/k1LoW/mo/pull/103
+- fix: rename --skip-bind-address-confirmation to --dangerously-allow-remote-access by @k1LoW in https://github.com/k1LoW/mo/pull/105
+
+## [v0.18.0](https://github.com/k1LoW/mo/compare/v0.17.0...v0.18.0) - 2026-03-10
+### New Features 🎉
+- feat: add wide/narrow layout toggle by @k1LoW in https://github.com/k1LoW/mo/pull/101
+### Other Changes
+- fix: add accessibility attributes to all toggle buttons by @k1LoW in https://github.com/k1LoW/mo/pull/102
+
+## [v0.17.0](https://github.com/k1LoW/mo/compare/v0.16.3...v0.17.0) - 2026-03-10
+### New Features 🎉
+- Proposal: add --bind flag to specify listen address by @110y in https://github.com/k1LoW/mo/pull/96
+- feat: add security warning with confirmation prompt for non-localhost --bind by @k1LoW in https://github.com/k1LoW/mo/pull/98
+
+## [v0.16.3](https://github.com/k1LoW/mo/compare/v0.16.2...v0.16.3) - 2026-03-10
+### Fix bug 🐛
+- fix: render Mermaid charts using actual container width by @k1LoW in https://github.com/k1LoW/mo/pull/95
+### Other Changes
+- refactor: replace eslint with oxlint/oxfmt by @k1LoW in https://github.com/k1LoW/mo/pull/93
+
+## [v0.16.2](https://github.com/k1LoW/mo/compare/v0.16.1...v0.16.2) - 2026-03-09
+### Fix bug 🐛
+- Remove stale files when a watched directory is moved by @110y in https://github.com/k1LoW/mo/pull/91
+
+## [v0.16.1](https://github.com/k1LoW/mo/compare/v0.16.0...v0.16.1) - 2026-03-09
+### New Features 🎉
+- feat: preserve scroll position across live-reload and server restart by @k1LoW in https://github.com/k1LoW/mo/pull/90
+### Other Changes
+- feat: add ESLint to frontend and fix all lint errors by @k1LoW in https://github.com/k1LoW/mo/pull/88
+
+## [v0.16.0](https://github.com/k1LoW/mo/compare/v0.15.2...v0.16.0) - 2026-03-08
+### Breaking Changes 🛠
+- feat: display deeplinks when adding files via CLI by @k1LoW in https://github.com/k1LoW/mo/pull/86
+- feat: route processable output to stdout and add --json flag by @k1LoW in https://github.com/k1LoW/mo/pull/87
+### New Features 🎉
+- feat: add LaTeX/math rendering support with KaTeX by @ysaito8015 in https://github.com/k1LoW/mo/pull/84
+- feat: add drag-and-drop file addition from OS file manager by @k1LoW in https://github.com/k1LoW/mo/pull/85
+### Other Changes
+- feat: use deterministic hash-based file IDs for deep linking by @k1LoW in https://github.com/k1LoW/mo/pull/81
+
+## [v0.15.2](https://github.com/k1LoW/mo/compare/v0.15.1...v0.15.2) - 2026-03-07
+### Other Changes
+- fix: always restore backup when starting a new server by @k1LoW in https://github.com/k1LoW/mo/pull/80
+
+## [v0.15.1](https://github.com/k1LoW/mo/compare/v0.15.0...v0.15.1) - 2026-03-06
+
+## [v0.15.0](https://github.com/k1LoW/mo/compare/v0.14.1...v0.15.0) - 2026-03-06
+### New Features 🎉
+- feat: add auto-backup and restore for sessions by @k1LoW in https://github.com/k1LoW/mo/pull/76
+
+## [v0.14.1](https://github.com/k1LoW/mo/compare/v0.14.0...v0.14.1) - 2026-03-06
+### Fix bug 🐛
+- fix: fix group dropdown not showing when no default group exists by @k1LoW in https://github.com/k1LoW/mo/pull/75
+
+## [v0.14.0](https://github.com/k1LoW/mo/compare/v0.13.1...v0.14.0) - 2026-03-06
+### New Features 🎉
+- feat: add --restart flag by @k1LoW in https://github.com/k1LoW/mo/pull/71
+- Add file search filtering to sidebar by @harakeishi in https://github.com/k1LoW/mo/pull/72
+- feat: reload all browser tabs on server restart by @k1LoW in https://github.com/k1LoW/mo/pull/70
+### Fix bug 🐛
+- fix: render code blocks without language using Shiki and copy button by @babarot in https://github.com/k1LoW/mo/pull/73
+
 ## [v0.13.1](https://github.com/k1LoW/mo/compare/v0.13.0...v0.13.1) - 2026-03-06
 ### New Features 🎉
 - feat: add `--unwatch` flag to remove watched glob patterns by @k1LoW in https://github.com/k1LoW/mo/pull/65

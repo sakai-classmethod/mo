@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileEntry, Group } from "../hooks/useApi";
 import { buildTree, type TreeNode } from "../utils/buildTree";
 import { FileContextMenu } from "./FileContextMenu";
+import { FileIcon } from "./FileIcon";
 
 const COLLAPSED_STORAGE_KEY = "mo-sidebar-tree-collapsed";
 
@@ -12,22 +13,24 @@ function getInitialCollapsed(group: string): Set<string> {
       const parsed = JSON.parse(stored);
       if (parsed[group]) return new Set(parsed[group]);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return new Set();
 }
 
 interface TreeViewProps {
   files: FileEntry[];
   activeGroup: string;
-  activeFileId: number | null;
-  menuOpenId: number | null;
+  activeFileId: string | null;
+  menuOpenId: string | null;
   otherGroups: Group[];
-  onFileSelect: (id: number) => void;
-  onMenuToggle: (id: number) => void;
-  onOpenInNewTab: (id: number) => void;
+  onFileSelect: (id: string) => void;
+  onMenuToggle: (id: string) => void;
+  onOpenInNewTab: (id: string) => void;
   onCopyPath: (path: string) => void;
-  onMoveToGroup: (id: number, group: string) => void;
-  onRemove: (id: number) => void;
+  onMoveToGroup: (id: string, group: string) => void;
+  onRemove: (id: string) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -46,17 +49,15 @@ export function TreeView({
   menuRef,
 }: TreeViewProps) {
   const tree = useMemo(() => buildTree(files), [files]);
+  const [prevGroup, setPrevGroup] = useState(activeGroup);
   const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(() =>
     getInitialCollapsed(activeGroup),
   );
-  const prevGroupRef = useRef(activeGroup);
 
-  useEffect(() => {
-    if (prevGroupRef.current !== activeGroup) {
-      prevGroupRef.current = activeGroup;
-      setCollapsedPaths(getInitialCollapsed(activeGroup));
-    }
-  }, [activeGroup]);
+  if (prevGroup !== activeGroup) {
+    setPrevGroup(activeGroup);
+    setCollapsedPaths(getInitialCollapsed(activeGroup));
+  }
 
   useEffect(() => {
     try {
@@ -64,7 +65,9 @@ export function TreeView({
       const all = stored ? JSON.parse(stored) : {};
       all[activeGroup] = [...collapsedPaths];
       localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(all));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [collapsedPaths, activeGroup]);
 
   const handleToggleCollapse = useCallback((path: string) => {
@@ -107,15 +110,15 @@ export function TreeView({
 interface TreeNodeItemProps {
   node: TreeNode;
   depth: number;
-  activeFileId: number | null;
-  menuOpenId: number | null;
+  activeFileId: string | null;
+  menuOpenId: string | null;
   otherGroups: Group[];
-  onFileSelect: (id: number) => void;
-  onMenuToggle: (id: number) => void;
-  onOpenInNewTab: (id: number) => void;
+  onFileSelect: (id: string) => void;
+  onMenuToggle: (id: string) => void;
+  onOpenInNewTab: (id: string) => void;
   onCopyPath: (path: string) => void;
-  onMoveToGroup: (id: number, group: string) => void;
-  onRemove: (id: number) => void;
+  onMoveToGroup: (id: string, group: string) => void;
+  onRemove: (id: string) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
   collapsedPaths: Set<string>;
   onToggleCollapse: (path: string) => void;
@@ -182,9 +185,7 @@ function TreeNodeItem({
             <path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.2c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1h6.8A1.75 1.75 0 0 1 16 4.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H7.5c-.55 0-1.07-.26-1.4-.7l-.9-1.2a.25.25 0 0 0-.2-.1Z" />
           )}
         </svg>
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-          {node.name}
-        </span>
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
       </button>
       {!isCollapsed &&
         node.children.map((child) => (
@@ -214,15 +215,15 @@ interface FileNodeItemProps {
   file: FileEntry;
   name: string;
   depth: number;
-  activeFileId: number | null;
-  menuOpenId: number | null;
+  activeFileId: string | null;
+  menuOpenId: string | null;
   otherGroups: Group[];
-  onFileSelect: (id: number) => void;
-  onMenuToggle: (id: number) => void;
-  onOpenInNewTab: (id: number) => void;
+  onFileSelect: (id: string) => void;
+  onMenuToggle: (id: string) => void;
+  onOpenInNewTab: (id: string) => void;
   onCopyPath: (path: string) => void;
-  onMoveToGroup: (id: number, group: string) => void;
-  onRemove: (id: number) => void;
+  onMoveToGroup: (id: string, group: string) => void;
+  onRemove: (id: string) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -253,14 +254,10 @@ function FileNodeItem({
         }`}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
         onClick={() => onFileSelect(file.id)}
-        title={file.path}
+        title={file.uploaded ? file.name : file.path}
       >
-        <svg className="size-4 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z" />
-        </svg>
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">
-          {name}
-        </span>
+        <FileIcon uploaded={file.uploaded} />
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">{name}</span>
       </button>
       <FileContextMenu
         file={file}

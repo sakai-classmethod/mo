@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
+import rehypeKatex from "rehype-katex";
 import { rehypeGithubAlerts } from "rehype-github-alerts";
+import "katex/dist/katex.min.css";
 import { codeToHtml } from "shiki";
 import mermaid from "mermaid";
 import { fetchFileContent, openRelativeFile } from "../hooks/useApi";
@@ -12,37 +16,38 @@ import { TocToggle } from "./TocToggle";
 import { CopyButton } from "./CopyButton";
 import { RemoveButton } from "./RemoveButton";
 import { resolveLink, resolveImageSrc, extractLanguage } from "../utils/resolve";
-import { extractText } from "../utils/extractText";
 import { parseFrontmatter } from "../utils/frontmatter";
 import { stripMdxSyntax } from "../utils/mdx";
+import { isMarkdownFile, detectLanguage } from "../utils/filetype";
 import type { TocHeading } from "./TocPanel";
 import type { Components } from "react-markdown";
 import "github-markdown-css/github-markdown.css";
 
+// Extend default GitHub-compatible schema to allow style/align attributes used in raw HTML
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    span: [...(defaultSchema.attributes?.["span"] || []), "style"],
+    div: [...(defaultSchema.attributes?.["div"] || []), "style", "align"],
+  },
+};
+
 interface MarkdownViewerProps {
-  fileId: number;
+  fileId: string;
   fileName: string;
   revision: number;
-  onFileOpened: (fileId: number) => void;
+  onFileOpened: (fileId: string) => void;
   onHeadingsChange: (headings: TocHeading[]) => void;
+  onContentRendered?: () => void;
   isTocOpen: boolean;
   onTocToggle: () => void;
   onRemoveFile: () => void;
+  isWide: boolean;
 }
-
-let mermaidInitialized = false;
 
 function getMermaidTheme(): "dark" | "default" {
-  return document.documentElement.getAttribute("data-theme") === "dark"
-    ? "dark"
-    : "default";
-}
-
-function ensureMermaidInit() {
-  if (!mermaidInitialized) {
-    mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
-    mermaidInitialized = true;
-  }
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "default";
 }
 
 let mermaidCounter = 0;
@@ -52,7 +57,7 @@ function cleanupMermaidErrors() {
   document.querySelectorAll("[id^='dmermaid-']").forEach((el) => el.remove());
 }
 
-async function renderMermaid(code: string): Promise<string> {
+async function renderMermaid(code: string, width?: number): Promise<string> {
   let resolve: (svg: string) => void;
   let reject: (err: unknown) => void;
   const result = new Promise<string>((res, rej) => {
@@ -66,6 +71,7 @@ async function renderMermaid(code: string): Promise<string> {
     container.style.position = "absolute";
     container.style.left = "-9999px";
     container.style.top = "-9999px";
+    container.style.width = `${width && width > 0 ? width : 800}px`;
     document.body.appendChild(container);
     try {
       const { svg } = await mermaid.render(id, code, container);
@@ -83,52 +89,49 @@ async function renderMermaid(code: string): Promise<string> {
 
 export function MermaidBlock({ code }: { code: string }) {
   const [svg, setSvg] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    ensureMermaidInit();
-    mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
-
-    renderMermaid(code)
-      .then((renderedSvg) => {
-        if (!cancelled) setSvg(renderedSvg);
-      })
-      .catch(() => {
-        if (!cancelled) setSvg("");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [code]);
-
-  // Re-render on theme change
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
+    const doRender = () => {
+      const width = containerRef.current?.offsetWidth;
       mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
-      renderMermaid(code)
-        .then((renderedSvg) => setSvg(renderedSvg))
-        .catch(() => {});
-    });
+      renderMermaid(code, width)
+        .then((renderedSvg) => {
+          if (!cancelled) setSvg(renderedSvg);
+        })
+        .catch(() => {
+          if (!cancelled) setSvg("");
+        });
+    };
+
+    doRender();
+
+    // Re-render on theme change
+    const observer = new MutationObserver(() => doRender());
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
     });
-    return () => observer.disconnect();
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
   }, [code]);
 
   if (svg) {
     return (
-      <div className="relative group">
-        <div dangerouslySetInnerHTML={{ __html: svg }} />
+      <div ref={containerRef} className="relative group">
+        <div className="overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />
         <MermaidImageCopyButton svg={svg} />
         <CodeBlockCopyButton code={code} themed />
       </div>
     );
   }
   return (
-    <div className="relative group">
+    <div ref={containerRef} className="relative group">
       <pre>
         <code>{code}</code>
       </pre>
@@ -149,9 +152,7 @@ function MermaidImageCopyButton({ svg }: { svg: string }) {
   const handleCopy = async () => {
     try {
       const blob = await svgToPngBlob(svg);
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       setCopied(true);
     } catch {
       // clipboard API may fail in insecure contexts
@@ -171,7 +172,13 @@ function MermaidImageCopyButton({ svg }: { svg: string }) {
       ) : (
         <svg className="size-4" viewBox="0 0 16 16" fill="currentColor">
           <path d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25Z" />
-          <path d="M0.5 12.75 4.5 5.5 7.5 9 9.5 6.5 15.5 12.75" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <path
+            d="M0.5 12.75 4.5 5.5 7.5 9 9.5 6.5 15.5 12.75"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
         </svg>
       )}
     </button>
@@ -245,7 +252,8 @@ function svgToPngBlob(svgString: string): Promise<Blob> {
 }
 
 const darkButtonStyle = "border-[#484f58] hover:border-[#8b949e] text-[#8b949e] bg-[#2d333b]";
-const themedButtonStyle = "border-gh-border hover:border-gh-text-secondary text-gh-text-secondary bg-gh-bg-secondary";
+const themedButtonStyle =
+  "border-gh-border hover:border-gh-text-secondary text-gh-text-secondary bg-gh-bg-secondary";
 
 function CodeBlockCopyButton({ code, themed = false }: { code: string; themed?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -331,7 +339,9 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 function FrontmatterBlock({ yaml }: { yaml: string }) {
   return (
     <details open className="mb-4">
-      <summary className="cursor-pointer select-none text-gh-text-secondary text-sm font-medium py-1">Metadata</summary>
+      <summary className="cursor-pointer select-none text-gh-text-secondary text-sm font-medium py-1">
+        Metadata
+      </summary>
       <div className="mt-2">
         <CodeBlock language="yaml" code={yaml} />
       </div>
@@ -339,12 +349,13 @@ function FrontmatterBlock({ yaml }: { yaml: string }) {
   );
 }
 
-function RawView({ content }: { content: string }) {
+function HighlightedView({ content, language }: { content: string; language: string }) {
   const [html, setHtml] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    codeToHtml(content, { lang: "markdown", theme: "github-dark" })
+    setHtml("");
+    codeToHtml(content, { lang: language, theme: "github-dark" })
       .then((result) => {
         if (!cancelled) setHtml(result);
       })
@@ -360,7 +371,7 @@ function RawView({ content }: { content: string }) {
     return () => {
       cancelled = true;
     };
-  }, [content]);
+  }, [content, language]);
 
   if (html) {
     return <div className="[&_pre]:!rounded-none" dangerouslySetInnerHTML={{ __html: html }} />;
@@ -372,15 +383,35 @@ function RawView({ content }: { content: string }) {
   );
 }
 
-export function MarkdownViewer({ fileId, fileName, revision, onFileOpened, onHeadingsChange, isTocOpen, onTocToggle, onRemoveFile }: MarkdownViewerProps) {
+function RawView({ content }: { content: string }) {
+  return <HighlightedView content={content} language="markdown" />;
+}
+
+export function MarkdownViewer({
+  fileId,
+  fileName,
+  revision,
+  onFileOpened,
+  onHeadingsChange,
+  onContentRendered,
+  isTocOpen,
+  onTocToggle,
+  onRemoveFile,
+  isWide,
+}: MarkdownViewerProps) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [isRawView, setIsRawView] = useState(false);
-  const headingsRef = useRef<TocHeading[]>([]);
+  const articleRef = useRef<HTMLElement>(null);
+  const [prevFetchKey, setPrevFetchKey] = useState({ fileId, revision });
+
+  if (fileId !== prevFetchKey.fileId || revision !== prevFetchKey.revision) {
+    setPrevFetchKey({ fileId, revision });
+    setLoading(true);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetchFileContent(fileId)
       .then((data) => {
         if (!cancelled) {
@@ -412,39 +443,21 @@ export function MarkdownViewer({ fileId, fileName, revision, onFileOpened, onHea
     [fileId, onFileOpened],
   );
 
-  // Reset heading collector before each render
-  headingsRef.current = [];
-
-  const createHeading = useCallback(
-    (level: number) =>
-      ({ id, children, ...props }: React.JSX.IntrinsicElements["h1"]) => {
-        const text = extractText(children);
-        if (id) {
-          headingsRef.current.push({ id: String(id), text, level });
-        }
-        const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-        return <Tag id={id} {...props}>{children}</Tag>;
-      },
-    [],
-  );
-
   const components: Components = useMemo(
     () => ({
-      h1: createHeading(1),
-      h2: createHeading(2),
-      h3: createHeading(3),
-      h4: createHeading(4),
-      h5: createHeading(5),
-      h6: createHeading(6),
       pre: ({ children }) => <>{children}</>,
       code: ({ className, children, ...props }) => {
         const language = extractLanguage(className);
         const code = String(children).replace(/\n$/, "");
+        const isBlock = String(children).endsWith("\n");
         if (language) {
           if (language === "mermaid") {
             return <MermaidBlock code={code} />;
           }
           return <CodeBlock language={language} code={code} />;
+        }
+        if (isBlock) {
+          return <CodeBlock language="text" code={code} />;
         }
         return (
           <code className={className} {...props}>
@@ -472,11 +485,7 @@ export function MarkdownViewer({ fileId, fileName, revision, onFileOpened, onHea
             );
           case "markdown":
             return (
-              <a
-                href={href}
-                onClick={(e) => handleLinkClick(e, resolved.hrefPath)}
-                {...props}
-              >
+              <a href={href} onClick={(e) => handleLinkClick(e, resolved.hrefPath)} {...props}>
                 {children}
               </a>
             );
@@ -495,49 +504,98 @@ export function MarkdownViewer({ fileId, fileName, revision, onFileOpened, onHea
         }
       },
     }),
-    [fileId, handleLinkClick, createHeading],
+    [fileId, handleLinkClick],
   );
 
-  const parsed = useMemo(() => isRawView ? null : parseFrontmatter(content), [content, isRawView]);
+  const isMarkdown = isMarkdownFile(fileName);
+  const codeLanguage = isMarkdown ? null : detectLanguage(fileName);
+
+  const parsed = useMemo(
+    () => (isMarkdown && !isRawView ? parseFrontmatter(content) : null),
+    [content, isRawView, isMarkdown],
+  );
 
   const renderedContent = useMemo(() => {
+    if (!isMarkdown) {
+      return <HighlightedView content={content} language={codeLanguage!} />;
+    }
     if (isRawView) {
       return <RawView content={content} />;
     }
     const base = parsed ? parsed.content : content;
-    const md = fileName.endsWith(".mdx") ? stripMdxSyntax(base) : base;
+    const md = fileName.toLowerCase().endsWith(".mdx") ? stripMdxSyntax(base) : base;
     return (
       <>
         {parsed && <FrontmatterBlock yaml={parsed.yaml} />}
-        <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeGithubAlerts, rehypeSlug]} components={components}>
+        <Markdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[
+            rehypeRaw,
+            [rehypeSanitize, sanitizeSchema],
+            rehypeGithubAlerts,
+            rehypeSlug,
+            rehypeKatex,
+          ]}
+          components={components}
+        >
           {md}
         </Markdown>
       </>
     );
-  }, [content, isRawView, components, fileName]);
+  }, [content, isRawView, isMarkdown, codeLanguage, parsed, components, fileName]);
 
   const prevHeadingsKey = useRef("");
   useEffect(() => {
-    const newHeadings = isRawView ? [] : [...headingsRef.current];
-    const key = newHeadings.map((h) => `${h.id}:${h.level}`).join(",");
+    const newHeadings: TocHeading[] = [];
+    if (!isRawView && articleRef.current) {
+      const els = articleRef.current.querySelectorAll("h1, h2, h3, h4, h5, h6");
+      for (const el of els) {
+        if (el.id) {
+          newHeadings.push({
+            id: el.id,
+            text: el.textContent ?? "",
+            level: parseInt(el.tagName.slice(1), 10),
+          });
+        }
+      }
+    }
+    const key = newHeadings.map((h) => `${h.id}:${h.level}:${h.text}`).join(",");
     if (key !== prevHeadingsKey.current) {
       prevHeadingsKey.current = key;
       onHeadingsChange(newHeadings);
     }
-  }, [content, isRawView, onHeadingsChange, renderedContent]);
+  }, [isRawView, renderedContent, onHeadingsChange]);
+
+  const onContentRenderedRef = useRef(onContentRendered);
+  useLayoutEffect(() => {
+    onContentRenderedRef.current = onContentRendered;
+  });
+
+  useLayoutEffect(() => {
+    if (!loading) {
+      onContentRenderedRef.current?.();
+    }
+  }, [loading, renderedContent]);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-50 text-gh-text-secondary text-sm">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-50 text-gh-text-secondary text-sm">
+        Loading...
+      </div>
+    );
   }
 
   return (
     <div className="flex items-start gap-2">
-      <article className="markdown-body min-w-0 flex-1">
+      <article
+        ref={articleRef}
+        className={`markdown-body min-w-0 flex-1${isWide ? " markdown-body--wide" : ""}`}
+      >
         {renderedContent}
       </article>
       <div className="shrink-0 flex flex-col gap-2 -mr-4 -mt-4">
-        <TocToggle isTocOpen={isTocOpen} onToggle={onTocToggle} />
-        <RawToggle isRaw={isRawView} onToggle={() => setIsRawView((v) => !v)} />
+        {isMarkdown && <TocToggle isTocOpen={isTocOpen} onToggle={onTocToggle} />}
+        {isMarkdown && <RawToggle isRaw={isRawView} onToggle={() => setIsRawView((v) => !v)} />}
         <CopyButton content={content} />
         <RemoveButton onRemove={onRemoveFile} />
       </div>

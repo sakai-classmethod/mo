@@ -8,13 +8,13 @@ const groups: Group[] = [
   {
     name: "default",
     files: [
-      { id: 1, name: "README.md", path: "/README.md" },
-      { id: 2, name: "GUIDE.md", path: "/GUIDE.md" },
+      { id: "aaa11111", name: "README.md", path: "/README.md" },
+      { id: "bbb22222", name: "GUIDE.md", path: "/GUIDE.md" },
     ],
   },
   {
     name: "docs",
-    files: [{ id: 3, name: "api.md", path: "/docs/api.md" }],
+    files: [{ id: "ccc33333", name: "api.md", path: "/docs/api.md" }],
   },
 ];
 
@@ -32,6 +32,8 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
     expect(screen.getByText("README.md")).toBeInTheDocument();
@@ -48,6 +50,8 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
     expect(screen.getByText("api.md")).toBeInTheDocument();
@@ -59,10 +63,12 @@ describe("Sidebar", () => {
       <Sidebar
         groups={groups}
         activeGroup="default"
-        activeFileId={1}
+        activeFileId={"aaa11111"}
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
     const activeButton = screen.getByText("README.md").closest("button")!;
@@ -83,11 +89,13 @@ describe("Sidebar", () => {
         onFileSelect={onFileSelect}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
 
     await user.click(screen.getByText("GUIDE.md"));
-    expect(onFileSelect).toHaveBeenCalledWith(2);
+    expect(onFileSelect).toHaveBeenCalledWith("bbb22222");
   });
 
   it("shows file path as title attribute", () => {
@@ -99,6 +107,8 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
     expect(screen.getByTitle("/README.md")).toBeInTheDocument();
@@ -115,8 +125,80 @@ describe("Sidebar", () => {
         onFileSelect={() => {}}
         onFilesReorder={() => {}}
         viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
       />,
     );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows search input when searchQuery is non-null", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        searchQuery=""
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.getByPlaceholderText("Search files...")).toBeInTheDocument();
+  });
+
+  it("does not show search input when searchQuery is null", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        searchQuery={null}
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.queryByPlaceholderText("Search files...")).not.toBeInTheDocument();
+  });
+
+  it("filters files by search query", () => {
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        searchQuery="read"
+        onSearchQueryChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("README.md")).toBeInTheDocument();
+    expect(screen.queryByText("GUIDE.md")).not.toBeInTheDocument();
+  });
+
+  it("calls onSearchQueryChange with null on Escape key", async () => {
+    const user = userEvent.setup();
+    const onSearchQueryChange = vi.fn();
+    render(
+      <Sidebar
+        groups={groups}
+        activeGroup="default"
+        activeFileId={null}
+        onFileSelect={() => {}}
+        onFilesReorder={() => {}}
+        viewMode="flat"
+        searchQuery=""
+        onSearchQueryChange={onSearchQueryChange}
+      />,
+    );
+    const input = screen.getByPlaceholderText("Search files...");
+    await user.click(input);
+    await user.keyboard("{Escape}");
+    expect(onSearchQueryChange).toHaveBeenCalledWith(null);
   });
 });

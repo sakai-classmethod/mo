@@ -39,6 +39,10 @@ body,
   margin: 0 auto;
 }
 
+.markdown-body.markdown-body--wide {
+  max-width: none;
+}
+
 /* Undo Tailwind preflight's display:block on img inside markdown
    so that inline badge images render on one line like GitHub */
 .markdown-body img {

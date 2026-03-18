@@ -15,16 +15,20 @@
 - GitHub-flavored Markdown (tables, task lists, footnotes, etc.)
 - Syntax highlighting ([Shiki](https://shiki.style/))
 - [Mermaid](https://mermaid.js.org/) diagram rendering
+- LaTeX math rendering ([KaTeX](https://katex.org/))
 - <img src="images/icons/theme-light.svg" width="16" height="16" alt="dark theme"> Dark / <img src="images/icons/theme-dark.svg" width="16" height="16" alt="light theme"> light theme
 - <img src="images/icons/group.svg" width="16" height="16" alt="group"> File grouping
 - <img src="images/icons/toc.svg" width="16" height="16" alt="toc"> Table of contents panel
-- <img src="images/icons/view-flat.svg" width="16" height="16" alt="flat view"> Flat / <img src="images/icons/view-tree.svg" width="16" height="16" alt="tree view"> tree sidebar view with drag-and-drop reorder
+- <img src="images/icons/view-flat.svg" width="16" height="16" alt="flat view"> Flat / <img src="images/icons/view-tree.svg" width="16" height="16" alt="tree view"> tree sidebar view with drag-and-drop reorder and file search
 - YAML frontmatter display (collapsible metadata block)
 - MDX file support (renders as Markdown, strips `import`/`export`, escapes JSX tags)
+- <img src="images/icons/width-expand.svg" width="16" height="16" alt="wide view"> Wide / <img src="images/icons/width-compress.svg" width="16" height="16" alt="narrow view"> narrow content width toggle
 - <img src="images/icons/raw.svg" width="16" height="16" alt="raw"> Raw markdown view
 - <img src="images/icons/copy.svg" width="16" height="16" alt="copy"> Copy content (Markdown / Text / HTML)
 - <img src="images/icons/restart.svg" width="16" height="16" alt="restart"> Server restart with session preservation
-- Live-reload on save
+- Auto session backup and restore
+- Drag-and-drop file addition from the OS file manager (content is loaded in-memory; live-reload is not supported for dropped files)
+- Live-reload on save (for files opened via CLI)
 
 ## Install
 
@@ -105,7 +109,7 @@ Patterns are resolved to absolute paths before matching, so you can specify eith
 
 The sidebar supports flat and tree view modes. Flat view shows file names only, while tree view displays the directory hierarchy.
 
-| Flat | Tree |
+| <img src="images/icons/view-flat.svg" height="16"> Flat | <img src="images/icons/view-tree.svg" height="16"> Tree |
 |------|------|
 | ![Flat view](images/sidebar-flat.png) | ![Tree view](images/sidebar-tree.png) |
 
@@ -131,6 +135,7 @@ http://localhost:6275 (pid 12345, v0.12.0)
 
 $ mo --shutdown            # Shut down the mo server on the default port
 $ mo --shutdown -p 6276    # Shut down the mo server on a specific port
+$ mo --restart             # Restart the mo server on the default port
 ```
 
 If you need the mo server to run in the foreground (e.g. for debugging), use `--foreground`:
@@ -141,7 +146,65 @@ $ mo --foreground README.md
 
 ### Server restart
 
-Click the <img src="images/icons/restart.svg" width="16" height="16" alt="restart"> restart button (bottom-right corner) to restart the `mo` server process. The current session — all open files and groups — is preserved across the restart. This is useful when you have updated the `mo` binary and want to pick up the new version without re-opening your files.
+Click the <img src="images/icons/restart.svg" width="16" height="16" alt="restart"> restart button (bottom-right corner) or run `mo --restart` to restart the `mo` server process. The current session — all open files and groups — is preserved across the restart. This is useful when you have updated the `mo` binary and want to pick up the new version without re-opening your files.
+
+### Session backup and restore
+
+`mo` automatically saves session state (open files and watch patterns per group) when files are added or removed. When starting a new server, the previous session is automatically restored and merged with any files specified on the command line. Restored session entries appear first, followed by newly specified files.
+
+``` console
+$ mo README.md CHANGELOG.md       # Start with two files
+$ mo --shutdown                   # Shut down the server
+$ mo                              # Restores README.md and CHANGELOG.md
+$ mo TODO.md                      # Restores previous session + adds TODO.md
+```
+
+Use `--clear` to remove a saved session:
+
+``` console
+$ mo --clear                      # Clear saved session for the default port
+$ mo --clear -p 6276              # Clear saved session for a specific port
+```
+
+### JSON output
+
+Use `--json` to get structured JSON output on stdout, useful for scripting and integration with other tools.
+
+``` console
+$ mo --json README.md
+{
+  "url": "http://localhost:6275",
+  "files": [
+    {
+      "url": "http://localhost:6275/?file=a1b2c3d4",
+      "name": "README.md",
+      "path": "/Users/you/project/README.md"
+    }
+  ]
+}
+```
+
+`--status` also supports `--json`:
+
+``` console
+$ mo --status --json
+[
+  {
+    "url": "http://localhost:6275",
+    "status": "running",
+    "pid": 12345,
+    "version": "0.15.0",
+    "revision": "abc1234",
+    "groups": [
+      {
+        "name": "default",
+        "files": 3,
+        "patterns": ["**/*.md"]
+      }
+    ]
+  }
+]
+```
 
 ### Flags
 
@@ -149,13 +212,20 @@ Click the <img src="images/icons/restart.svg" width="16" height="16" alt="restar
 |------|-------|---------|-------------|
 | `--target` | `-t` | `default` | Group name |
 | `--port` | `-p` | `6275` | Server port |
+| `--bind` | `-b` | `localhost` | Bind address (e.g. `0.0.0.0`) |
 | `--open` | | | Always open browser |
 | `--no-open` | | | Never open browser |
 | `--status` | | | Show all running mo servers |
 | `--watch` | `-w` | | Glob pattern to watch for matching files (repeatable) |
 | `--unwatch` | | | Remove a watched glob pattern (repeatable) |
 | `--shutdown` | | | Shut down the running mo server |
+| `--restart` | | | Restart the running mo server |
+| `--clear` | | | Clear saved session for the specified port |
 | `--foreground` | | | Run mo server in foreground |
+| `--json` | | | Output structured data as JSON to stdout |
+
+> [!WARNING]
+> Binding to a non-localhost address exposes mo to the network **without any authentication**. Remote clients can read any file accessible by the user, browse the filesystem via glob patterns, and shut down the server. A confirmation prompt is shown when `--bind` is set to a non-loopback address.
 
 ## Build
 
@@ -168,3 +238,10 @@ $ make build
 ## References
 
 - [yusukebe/gh-markdown-preview](https://github.com/yusukebe/gh-markdown-preview): GitHub CLI extension to preview Markdown looks like GitHub.
+
+## License
+
+- [MIT License](LICENSE)
+    - Include logo as well as source code.
+    - Only logo license can be selected [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+    - Also, if there is no alteration to the logo and it is used for technical information about mo, I would not say anything if the copyright notice is omitted.

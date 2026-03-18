@@ -12,8 +12,27 @@ export function buildTree(files: FileEntry[]): TreeNode {
     return { name: "", fullPath: "", children: [], file: null };
   }
 
+  // Separate uploaded files from filesystem files
+  const fsFiles = files.filter((f) => !f.uploaded);
+  const uploadedFiles = files.filter((f) => f.uploaded);
+
+  if (fsFiles.length === 0) {
+    // All files are uploaded — flat list at root
+    const root: TreeNode = { name: "", fullPath: "", children: [], file: null };
+    for (const file of uploadedFiles) {
+      root.children.push({
+        name: file.name,
+        fullPath: `uploaded:${file.id}`,
+        children: [],
+        file,
+      });
+    }
+    sortTree(root);
+    return root;
+  }
+
   // Split each file path into segments once
-  const splitPaths = files.map((f) => f.path.split("/"));
+  const splitPaths = fsFiles.map((f) => f.path.split("/"));
   const dirSegmentsList = splitPaths.map((parts) => parts.slice(0, -1));
 
   // Find common prefix among directory parts
@@ -23,22 +42,18 @@ export function buildTree(files: FileEntry[]): TreeNode {
   // Build a trie from relative paths
   const root: TreeNode = { name: "", fullPath: "", children: [], file: null };
 
-  for (let fi = 0; fi < files.length; fi++) {
-    const file = files[fi];
+  for (let fi = 0; fi < fsFiles.length; fi++) {
+    const file = fsFiles[fi];
     const parts = splitPaths[fi];
     const dirParts = parts.slice(prefixLen, -1); // relative dir segments
     let current = root;
 
     for (const segment of dirParts) {
-      let child = current.children.find(
-        (c) => c.file == null && c.name === segment,
-      );
+      let child = current.children.find((c) => c.file == null && c.name === segment);
       if (!child) {
         child = {
           name: segment,
-          fullPath: current.fullPath
-            ? `${current.fullPath}/${segment}`
-            : segment,
+          fullPath: current.fullPath ? `${current.fullPath}/${segment}` : segment,
           children: [],
           file: null,
         };
@@ -50,6 +65,16 @@ export function buildTree(files: FileEntry[]): TreeNode {
     current.children.push({
       name: file.name,
       fullPath: current.fullPath ? `${current.fullPath}/${file.name}` : file.name,
+      children: [],
+      file,
+    });
+  }
+
+  // Add uploaded files at root level
+  for (const file of uploadedFiles) {
+    root.children.push({
+      name: file.name,
+      fullPath: `uploaded:${file.id}`,
       children: [],
       file,
     });
@@ -84,11 +109,7 @@ function collapseSingleChild(node: TreeNode): void {
   for (let i = 0; i < node.children.length; i++) {
     let child = node.children[i];
     // Collapse chain: directory with exactly one child that is also a directory
-    while (
-      child.file == null &&
-      child.children.length === 1 &&
-      child.children[0].file == null
-    ) {
+    while (child.file == null && child.children.length === 1 && child.children[0].file == null) {
       const grandchild = child.children[0];
       child = {
         name: `${child.name}/${grandchild.name}`,

@@ -38,7 +38,7 @@ func validateGroupName(name string) error {
 		return fmt.Errorf("group name must not contain consecutive slashes")
 	}
 
-	for _, seg := range strings.Split(name, "/") {
+	for seg := range strings.SplitSeq(name, "/") {
 		if seg == "." || seg == ".." {
 			return fmt.Errorf("group name must not contain '.' or '..' path segments")
 		}

@@ -24,8 +24,15 @@ screenshot: build
 	cd internal/frontend && pnpm run screenshots
 
 lint:
+	cd internal/frontend && pnpm install && pnpm run lint
 	golangci-lint run ./...
 	go vet -vettool=`which gostyle` -gostyle.config=$(PWD)/.gostyle.yml ./...
+
+fmt:
+	cd internal/frontend && pnpm install && pnpm run fmt
+
+fmt-check:
+	cd internal/frontend && pnpm install && pnpm run fmt:check
 
 depsdev:
 	go install github.com/Songmu/gocredits/cmd/gocredits@latest
@@ -40,4 +47,4 @@ credits: depsdev generate
 prerelease_for_tagpr: credits
 	git add CHANGELOG.md CREDITS go.mod go.sum
 
-.PHONY: default ci generate test build dev screenshot lint depsdev credits prerelease_for_tagpr
+.PHONY: default ci generate test build dev screenshot lint fmt fmt-check depsdev credits prerelease_for_tagpr
