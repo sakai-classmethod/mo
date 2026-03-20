@@ -538,12 +538,14 @@ func TestWaitForServerDown(t *testing.T) {
 		srv := newFakeMoServer(t, func(w http.ResponseWriter, r *http.Request) {
 			callCount++
 			if callCount >= 3 {
-				// Stop responding after a few probes
+				// Stop responding after a few probes by closing the connection.
 				hj, ok := w.(http.Hijacker)
 				if ok {
-					conn, _, _ := hj.Hijack()
-					conn.Close()
-					return
+					conn, _, err := hj.Hijack()
+					if err == nil {
+						conn.Close()
+						return
+					}
 				}
 				http.Error(w, "gone", http.StatusInternalServerError)
 				return
