@@ -192,7 +192,13 @@ func run(cmd *cobra.Command, args []string) error {
 	addr := net.JoinHostPort(bind, strconv.Itoa(port))
 
 	if clearBackup {
-		if !backup.Exists(port) {
+		wasServerRunning := false
+		if _, err := probeServer(addr, probeTimeoutFast); err == nil {
+			wasServerRunning = true
+		}
+		hasBackup := backup.Exists(port)
+
+		if !wasServerRunning && !hasBackup {
 			fmt.Fprintf(os.Stderr, "mo: no saved session for port %d\n", port)
 			return nil
 		}
@@ -207,10 +213,33 @@ func run(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(os.Stderr, "mo: canceled")
 			return nil
 		}
-		if err := backup.Remove(port); err != nil {
-			return err
+
+		if wasServerRunning {
+			// Shut down the running server, wait for it to stop,
+			// then restart with an empty state.
+			if err := doShutdown(addr); err != nil {
+				return err
+			}
+			if err := waitForServerDown(addr); err != nil {
+				return err
+			}
 		}
-		fmt.Fprintf(os.Stderr, "mo: cleared saved session for port %d\n", port)
+
+		if hasBackup {
+			if err := backup.Remove(port); err != nil {
+				return err
+			}
+		}
+
+		if wasServerRunning {
+			// Restart the server with an empty state.
+			if _, err := spawnNewProcess(addr, ""); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "mo: cleared session and restarted server on port %d\n", port)
+		} else {
+			fmt.Fprintf(os.Stderr, "mo: cleared saved session for port %d\n", port)
+		}
 		return nil
 	}
 
@@ -762,6 +791,26 @@ func probeServer(addr string, timeout ...time.Duration) (*probeResult, error) {
 	return &probeResult{client: client, groups: groups}, nil
 }
 
+// waitForServerDownTimeout is the maximum time to wait for a server to stop.
+// Overridable in tests.
+var waitForServerDownTimeout = 5 * time.Second
+
+// waitForServerDown polls until the server on addr stops responding.
+func waitForServerDown(addr string) error {
+	const (
+		pollInterval = 100 * time.Millisecond
+		probeTimeout = 500 * time.Millisecond
+	)
+	deadline := time.Now().Add(waitForServerDownTimeout)
+	for time.Now().Before(deadline) {
+		if _, err := probeServer(addr, probeTimeout); err != nil {
+			return nil
+		}
+		time.Sleep(pollInterval)
+	}
+	return fmt.Errorf("server on %s did not shut down within %s", addr, waitForServerDownTimeout)
+}
+
 func doShutdown(addr string) error {
 	result, err := probeServer(addr)
 	if err != nil {
@@ -1179,7 +1228,14 @@ func spawnNewProcess(addr string, restoreFile string) (*os.Process, error) {
 		return nil, fmt.Errorf("cannot parse addr: %w", err)
 	}
 
-	cmd := exec.Command(binPath, "--port", p, "--bind", h, "--no-open", "--foreground", "--restore", restoreFile) //nolint:gosec
+	args := []string{"--port", p, "--bind", h, "--no-open", "--foreground"}
+	if restoreFile != "" {
+		args = append(args, "--restore", restoreFile)
+	}
+	if dangerouslyAllowRemoteAccess {
+		args = append(args, "--dangerously-allow-remote-access")
+	}
+	cmd := exec.Command(binPath, args...) //nolint:gosec
 	setSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start new process: %w", err)

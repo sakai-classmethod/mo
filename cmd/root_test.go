@@ -3,10 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/k1LoW/mo/internal/server"
 )
@@ -528,6 +531,72 @@ func TestEmitServeOutput(t *testing.T) {
 			t.Errorf("got Name %q, want %q", output.Files[0].Name, "upload.md")
 		}
 	})
+}
+
+func TestWaitForServerDown(t *testing.T) {
+	// Use a short timeout for tests.
+	orig := waitForServerDownTimeout
+	waitForServerDownTimeout = 500 * time.Millisecond
+	t.Cleanup(func() { waitForServerDownTimeout = orig })
+
+	t.Run("returns nil when server actually stops", func(t *testing.T) {
+		callCount := 0
+		stopCh := make(chan struct{}, 1)
+
+		var srv *httptest.Server //nolint:staticcheck // declared before assignment so the closure can reference srv
+		srv = newFakeMoServer(t, func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			if callCount >= 3 {
+				select {
+				case stopCh <- struct{}{}:
+				default:
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"version": "test", "pid": 1, "groups": []any{}}) //nolint:errcheck
+		})
+
+		go func() {
+			<-stopCh
+			srv.Close()
+		}()
+
+		addr := strings.TrimPrefix(srv.URL, "http://")
+		err := waitForServerDown(addr)
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+	})
+
+	t.Run("returns error on timeout", func(t *testing.T) {
+		srv := newFakeMoServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"version": "test", "pid": 1, "groups": []any{}}) //nolint:errcheck
+		})
+
+		addr := strings.TrimPrefix(srv.URL, "http://")
+		err := waitForServerDown(addr)
+		if err == nil {
+			t.Fatal("expected timeout error, got nil")
+		}
+		if !strings.Contains(err.Error(), "did not shut down") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+// newFakeMoServer creates an httptest server that handles /_/api/status with
+// the provided handler, and /_/api/shutdown with a 202 response.
+func newFakeMoServer(t *testing.T, statusHandler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /_/api/status", statusHandler)
+	mux.HandleFunc("POST /_/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func TestIsLoopbackBind(t *testing.T) {
