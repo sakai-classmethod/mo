@@ -13,6 +13,8 @@ interface ZoomModalProps {
 export function ZoomModal({ content, onClose }: ZoomModalProps) {
   const [initialScale, setInitialScale] = useState<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -48,14 +50,32 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
     return () => cancelAnimationFrame(raf);
   }, [content, calcScale]);
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    const down = mouseDownPos.current;
+    mouseDownPos.current = null;
+    if (!down) return;
+
+    // Ignore drag (moved more than 5px)
+    const dist = Math.sqrt((e.clientX - down.x) ** 2 + (e.clientY - down.y) ** 2);
+    if (dist > 5) return;
+
+    // Don't close if clicking on the content or close button
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) return;
+    if (zoomContentRef.current?.contains(target)) return;
+
+    onClose();
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-      onClick={handleBackdropClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       role="dialog"
       aria-modal="true"
       aria-label="Zoom viewer"
@@ -117,11 +137,13 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
               justifyContent: "center",
             }}
           >
-            {content.type === "image" ? (
-              <img src={content.src} alt={content.alt ?? ""} draggable={false} />
-            ) : (
-              <div dangerouslySetInnerHTML={{ __html: content.svg }} />
-            )}
+            <div ref={zoomContentRef}>
+              {content.type === "image" ? (
+                <img src={content.src} alt={content.alt ?? ""} draggable={false} />
+              ) : (
+                <div dangerouslySetInnerHTML={{ __html: content.svg }} />
+              )}
+            </div>
           </TransformComponent>
         </TransformWrapper>
       )}
