@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.22.0](https://github.com/k1LoW/mo/compare/v0.21.0...v0.22.0) - 2026-03-26
+### New Features 🎉
+- feat: add "Copy link" to file context menu by @k1LoW in https://github.com/k1LoW/mo/pull/140
+- feat: persist TOC open/closed state per file in localStorage by @k1LoW in https://github.com/k1LoW/mo/pull/143
+
 ## [v0.21.0](https://github.com/k1LoW/mo/compare/v0.20.2...v0.21.0) - 2026-03-24
 ### Breaking Changes 🛠
 - feat: support directory arguments to open .md files inside by @k1LoW in https://github.com/k1LoW/mo/pull/137
