@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.22.1](https://github.com/k1LoW/mo/compare/v0.22.0...v0.22.1) - 2026-03-27
+### Fix bug 🐛
+- fix: Enable overscroll containment for Sidebar and TocPanel components by @orangekame3 in https://github.com/k1LoW/mo/pull/147
+### Dependency Updates ⬆️
+- chore(deps): bump the dependencies group in /internal/frontend with 8 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/145
+
 ## [v0.22.0](https://github.com/k1LoW/mo/compare/v0.21.0...v0.22.0) - 2026-03-26
 ### New Features 🎉
 - feat: add "Copy link" to file context menu by @k1LoW in https://github.com/k1LoW/mo/pull/140
