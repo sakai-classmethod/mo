@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.23.0](https://github.com/k1LoW/mo/compare/v0.22.1...v0.23.0) - 2026-03-28
+### New Features 🎉
+- feat: add full-text search results by @k1LoW in https://github.com/k1LoW/mo/pull/149
+- chore: change page title format by @syumai in https://github.com/k1LoW/mo/pull/151
+
 ## [v0.22.1](https://github.com/k1LoW/mo/compare/v0.22.0...v0.22.1) - 2026-03-27
 ### Fix bug 🐛
 - fix: Enable overscroll containment for Sidebar and TocPanel components by @orangekame3 in https://github.com/k1LoW/mo/pull/147
