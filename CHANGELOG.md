@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.23.1](https://github.com/k1LoW/mo/compare/v0.23.0...v0.23.1) - 2026-03-28
+### Other Changes
+- fix: open sidebar when search is activated by @k1LoW in https://github.com/k1LoW/mo/pull/152
+
 ## [v0.23.0](https://github.com/k1LoW/mo/compare/v0.22.1...v0.23.0) - 2026-03-28
 ### New Features 🎉
 - feat: add full-text search results by @k1LoW in https://github.com/k1LoW/mo/pull/149
