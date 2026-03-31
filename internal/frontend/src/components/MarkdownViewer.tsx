@@ -28,6 +28,7 @@ import "github-markdown-css/github-markdown.css";
 // Extend default GitHub-compatible schema to allow style/align attributes used in raw HTML
 const sanitizeSchema = {
   ...defaultSchema,
+  clobberPrefix: "",
   attributes: {
     ...defaultSchema.attributes,
     span: [...(defaultSchema.attributes?.["span"] || []), "style"],
@@ -603,7 +604,20 @@ export function MarkdownViewer({
             );
           case "hash":
             return (
-              <a href={href} {...props}>
+              <a
+                href={href}
+                onClick={(e) => {
+                  const id = href?.slice(1);
+                  if (!id) return;
+                  const target = document.getElementById(id);
+                  if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: "smooth", block: "start" });
+                    history.replaceState(null, "", href);
+                  }
+                }}
+                {...props}
+              >
                 {children}
               </a>
             );
