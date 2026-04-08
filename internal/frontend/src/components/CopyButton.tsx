@@ -34,11 +34,11 @@ export function CopyButton({ content }: CopyButtonProps) {
       if (format === "markdown") {
         await navigator.clipboard.writeText(content);
       } else if (format === "text") {
-        const el = document.querySelector<HTMLElement>(".markdown-body");
+        const el = document.querySelector<HTMLElement>(".znc");
         const text = el ? el.innerText : content;
         await navigator.clipboard.writeText(text);
       } else {
-        const el = document.querySelector<HTMLElement>(".markdown-body");
+        const el = document.querySelector<HTMLElement>(".znc");
         const html = el ? el.innerHTML : content;
         const blob = new Blob([html], { type: "text/html" });
         const textBlob = new Blob([el ? el.innerText : content], { type: "text/plain" });

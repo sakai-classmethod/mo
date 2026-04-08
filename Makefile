@@ -15,10 +15,15 @@ test:
 	go test ./... -coverprofile=coverage.out -covermode=count -count=1
 
 build: generate
-	go build -ldflags=$(BUILD_LDFLAGS) -trimpath -o mo .
+	go build -ldflags=$(BUILD_LDFLAGS) -trimpath -o zenn .
+
+GOBIN_DIR := $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
+
+install: build
+	install zenn $(GOBIN_DIR)/zenn
 
 dev: build
-	./mo -p 16275 --foreground $(ARGS)
+	./zenn -p 16276 --foreground $(ARGS)
 
 screenshot: build
 	cd internal/frontend && pnpm run screenshots

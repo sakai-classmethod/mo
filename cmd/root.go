@@ -60,30 +60,30 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "mo [flags] [FILE|DIR ...]",
-	Short: "mo is a Markdown viewer that opens .md files in a browser.",
-	Long: `mo is a Markdown viewer that opens .md files in a browser with live-reload.
+	Use:   "zenn [flags] [FILE|DIR ...]",
+	Short: "zenn is a Zenn-flavored Markdown viewer that opens .md files in a browser.",
+	Long: `zenn is a Zenn-flavored Markdown viewer that opens .md files in a browser with live-reload.
 
-It runs in the background, serving Markdown files using a built-in React SPA,
-and automatically refreshes the browser when files are saved.
+It runs in the background, serving Markdown files using a built-in React SPA
+with Zenn markup rendering, and automatically refreshes the browser when files are saved.
 
 Examples:
-  mo README.md                          Open a single file
-  mo README.md CHANGELOG.md docs/*.md   Open multiple files
-  mo spec.md --target design            Open in a named group
-  mo draft.md --port 6276               Use a different port
+  zenn README.md                          Open a single file
+  zenn README.md CHANGELOG.md docs/*.md   Open multiple files
+  zenn spec.md --target design            Open in a named group
+  zenn draft.md --port 6277               Use a different port
 
 Single Server, Multiple Files:
-  By default, mo runs a single server on port 6275.
-  If a mo server is already running on the same port, subsequent mo
+  By default, zenn runs a single server on port 6276.
+  If a zenn server is already running on the same port, subsequent zenn
   invocations add files to the existing session instead of starting a new one.
 
-  $ mo README.md          # Starts a mo server in the background
-  $ mo CHANGELOG.md       # Adds the file to the running mo server
+  $ zenn README.md          # Starts a zenn server in the background
+  $ zenn CHANGELOG.md       # Adds the file to the running zenn server
 
   To run a completely separate session, use a different port:
 
-  $ mo draft.md -p 6276
+  $ zenn draft.md -p 6277
 
 Groups:
   Files can be organized into named groups using the --target (-t) flag.
@@ -161,7 +161,7 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringVarP(&target, "target", "t", server.DefaultGroup, "Tab group name")
-	rootCmd.Flags().IntVarP(&port, "port", "p", 6275, "Server port")
+	rootCmd.Flags().IntVarP(&port, "port", "p", 6276, "Server port")
 	rootCmd.Flags().StringVarP(&bind, "bind", "b", "localhost", "Bind address (e.g. localhost, 0.0.0.0)")
 	rootCmd.Flags().BoolVar(&open, "open", false, "Always open browser (even when adding to existing group)")
 	rootCmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open browser automatically")
@@ -202,18 +202,18 @@ func run(cmd *cobra.Command, args []string) error {
 		hasBackup := backup.Exists(port)
 
 		if !wasServerRunning && !hasBackup {
-			fmt.Fprintf(os.Stderr, "mo: no saved session for port %d\n", port)
+			fmt.Fprintf(os.Stderr, "zenn: no saved session for port %d\n", port)
 			return nil
 		}
-		fmt.Fprintf(os.Stderr, "mo: clear saved session for port %d? [Y/n] ", port)
+		fmt.Fprintf(os.Stderr, "zenn: clear saved session for port %d? [Y/n] ", port)
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
-			fmt.Fprintln(os.Stderr, "mo: canceled")
+			fmt.Fprintln(os.Stderr, "zenn: canceled")
 			return nil
 		}
 		ans := strings.TrimSpace(scanner.Text())
 		if ans != "" && strings.ToLower(ans) != "y" && strings.ToLower(ans) != "yes" {
-			fmt.Fprintln(os.Stderr, "mo: canceled")
+			fmt.Fprintln(os.Stderr, "zenn: canceled")
 			return nil
 		}
 
@@ -239,9 +239,9 @@ func run(cmd *cobra.Command, args []string) error {
 			if _, err := spawnNewProcess(addr, ""); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "mo: cleared session and restarted server on port %d\n", port)
+			fmt.Fprintf(os.Stderr, "zenn: cleared session and restarted server on port %d\n", port)
 		} else {
-			fmt.Fprintf(os.Stderr, "mo: cleared saved session for port %d\n", port)
+			fmt.Fprintf(os.Stderr, "zenn: cleared saved session for port %d\n", port)
 		}
 		return nil
 	}
@@ -298,7 +298,7 @@ func run(cmd *cobra.Command, args []string) error {
 			for _, name := range names {
 				fmt.Printf("  %s\n", name)
 			}
-			fmt.Fprintf(os.Stderr, "mo: closed %d file(s) from http://%s\n", len(closedPaths), addr)
+			fmt.Fprintf(os.Stderr, "zenn: closed %d file(s) from http://%s\n", len(closedPaths), addr)
 		}
 		return err
 	}
@@ -369,7 +369,7 @@ func run(cmd *cobra.Command, args []string) error {
 	var uploadedFiles []server.UploadedFileData
 	if len(restoredFiles) > 0 || len(restoredPatterns) > 0 || len(restoredUploads) > 0 {
 		slog.Info("restoring session from backup", "port", port)
-		fmt.Fprintf(os.Stderr, "mo: restoring previous session for port %d\n", port)
+		fmt.Fprintf(os.Stderr, "zenn: restoring previous session for port %d\n", port)
 		filesByGroup = mergeGroups(restoredFiles, filesByGroup)
 		patternsByGroup = mergeGroups(restoredPatterns, patternsByGroup)
 		uploadedFiles = restoredUploads
@@ -393,12 +393,12 @@ func run(cmd *cobra.Command, args []string) error {
 			if err := scanner.Err(); err != nil {
 				return err
 			}
-			fmt.Fprintln(os.Stderr, "mo: canceled")
+			fmt.Fprintln(os.Stderr, "zenn: canceled")
 			return nil
 		}
 		ans := strings.ToLower(strings.TrimSpace(scanner.Text()))
 		if ans != "y" && ans != "yes" {
-			fmt.Fprintln(os.Stderr, "mo: canceled")
+			fmt.Fprintln(os.Stderr, "zenn: canceled")
 			return nil
 		}
 	}
@@ -570,7 +570,7 @@ func tryAddToExisting(addr string, files []string, patterns []string) bool {
 	added := len(files) + len(patterns)
 	slog.Info("added to existing server", "files", len(files), "patterns", len(patterns), "addr", addr)
 	emitServeOutput(addr, deeplinks, false)
-	fmt.Fprintf(os.Stderr, "mo: added %d item(s) to http://%s\n", added, addr)
+	fmt.Fprintf(os.Stderr, "zenn: added %d item(s) to http://%s\n", added, addr)
 
 	if isNewGroup || open {
 		openBrowser(addr)
@@ -816,7 +816,7 @@ func probeServer(addr string, timeout ...time.Duration) (*probeResult, error) {
 	client := &http.Client{Timeout: t}
 	resp, err := client.Get(fmt.Sprintf("http://%s/_/api/status", addr))
 	if err != nil {
-		return nil, fmt.Errorf("no mo server found on %s", addr)
+		return nil, fmt.Errorf("no zenn server found on %s", addr)
 	}
 	defer resp.Body.Close()
 
@@ -879,7 +879,7 @@ func doShutdown(addr string) error {
 	}
 
 	slog.Info("shutdown request sent", "addr", addr)
-	fmt.Fprintf(os.Stderr, "mo: shutdown request sent to http://%s\n", addr)
+	fmt.Fprintf(os.Stderr, "zenn: shutdown request sent to http://%s\n", addr)
 	return nil
 }
 
@@ -900,7 +900,7 @@ func doRestart(addr string) error {
 	}
 
 	slog.Info("restart request sent", "addr", addr)
-	fmt.Fprintf(os.Stderr, "mo: restart request sent to http://%s\n", addr)
+	fmt.Fprintf(os.Stderr, "zenn: restart request sent to http://%s\n", addr)
 	return nil
 }
 
@@ -939,7 +939,7 @@ func doUnwatch(addr string, patterns []string, groupName string) error {
 		}
 
 		slog.Info("pattern removed", "pattern", pat, "group", groupName)
-		fmt.Fprintf(os.Stderr, "mo: unwatched %s\n", pat)
+		fmt.Fprintf(os.Stderr, "zenn: unwatched %s\n", pat)
 	}
 
 	return nil
@@ -1038,7 +1038,7 @@ func doStatus() error {
 		if jsonOutput {
 			writeJSON([]jsonStatusEntry{})
 		} else {
-			fmt.Fprintln(os.Stderr, "mo: no mo server found")
+			fmt.Fprintln(os.Stderr, "zenn: no zenn server found")
 		}
 		return nil
 	}
@@ -1114,7 +1114,7 @@ func doStatus() error {
 		}
 		writeJSON(jsonEntries)
 	} else if !found {
-		fmt.Fprintln(os.Stderr, "mo: no mo server found")
+		fmt.Fprintln(os.Stderr, "zenn: no zenn server found")
 	}
 
 	return nil
@@ -1331,7 +1331,7 @@ func startBackground(addr string, filesByGroup map[string][]string, patternsByGr
 		}
 	}
 	emitServeOutput(addr, deeplinks, true)
-	fmt.Fprintf(os.Stderr, "mo: serving at http://%s (pid %d)\n", addr, pid)
+	fmt.Fprintf(os.Stderr, "zenn: serving at http://%s (pid %d)\n", addr, pid)
 
 	openBrowser(addr)
 

@@ -1260,11 +1260,12 @@ func withCSP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'unsafe-eval'; "+
-				"style-src 'self' 'unsafe-inline'; "+
+				"script-src 'self' 'unsafe-eval' https://embed.zenn.studio https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "+
 				"img-src 'self' https: data:; "+
-				"font-src 'self' data:; "+
+				"font-src 'self' data: https://cdn.jsdelivr.net; "+
 				"connect-src 'self'; "+
+				"frame-src https://embed.zenn.studio https://www.youtube-nocookie.com; "+
 				"object-src 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'; "+
